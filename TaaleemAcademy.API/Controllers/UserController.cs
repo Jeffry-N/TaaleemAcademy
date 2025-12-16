@@ -1,7 +1,9 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
+using TaaleemAcademy.API.DTOs;
 
 namespace TaaleemAcademy.API.Controllers
 {
@@ -10,19 +12,23 @@ namespace TaaleemAcademy.API.Controllers
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
 
-        public UserController(ApplicationDbContext context)
+        public UserController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
+        // GET: All Users
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetAllUsers()
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
             try
             {
                 var users = await _context.Users.ToListAsync();
-                return Ok(users);
+                var userDtos = _mapper.Map<List<UserDto>>(users);
+                return Ok(userDtos);
             }
             catch (Exception ex)
             {
@@ -30,8 +36,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: User by ID
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUserById(int id)
+        public async Task<ActionResult<UserDto>> GetUserById(int id)
         {
             try
             {
@@ -42,7 +49,8 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"User with ID {id} not found" });
                 }
 
-                return Ok(user);
+                var userDto = _mapper.Map<UserDto>(user);
+                return Ok(userDto);
             }
             catch (Exception ex)
             {
@@ -50,29 +58,33 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: Create User
         [HttpPost]
-        public async Task<ActionResult<User>> CreateUser(User user)
+        public async Task<ActionResult<UserDto>> CreateUser(CreateUserDto createUserDto)
         {
             try
             {
-                if (string.IsNullOrEmpty(user.FullName) || string.IsNullOrEmpty(user.Email))
+                if (!ModelState.IsValid)
                 {
-                    return BadRequest(new { message = "FullName and Email are required" });
+                    return BadRequest(ModelState);
                 }
 
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
+                // Check if email already exists
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == createUserDto.Email);
                 if (existingUser != null)
                 {
                     return Conflict(new { message = "Email already exists" });
                 }
 
-                user.CreatedAt = DateTime.Now;
-                user.UpdatedAt = null;
+                // Map DTO to Entity
+                var user = _mapper.Map<User>(createUserDto);
+                
 
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+                var userDto = _mapper.Map<UserDto>(user);
+                return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, userDto);
             }
             catch (Exception ex)
             {
@@ -80,14 +92,20 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: Update User
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, User user)
+        public async Task<IActionResult> UpdateUser(int id, UpdateUserDto updateUserDto)
         {
             try
             {
-                if (id != user.Id)
+                if (id != updateUserDto.Id)
                 {
                     return BadRequest(new { message = "ID mismatch" });
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
                 }
 
                 var existingUser = await _context.Users.FindAsync(id);
@@ -96,17 +114,15 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"User with ID {id} not found" });
                 }
 
-                existingUser.FullName = user.FullName;
-                existingUser.Email = user.Email;
-                existingUser.HashedPassword = user.HashedPassword;
-                existingUser.Role = user.Role;
-                existingUser.IsActive = user.IsActive;
-                existingUser.UpdatedAt = DateTime.Now;
+                // Map DTO to existing entity
+                _mapper.Map(updateUserDto, existingUser);
+
 
                 _context.Entry(existingUser).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "User updated successfully", user = existingUser });
+                var userDto = _mapper.Map<UserDto>(existingUser);
+                return Ok(new { message = "User updated successfully", user = userDto });
             }
             catch (Exception ex)
             {
@@ -114,6 +130,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: Delete User
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {

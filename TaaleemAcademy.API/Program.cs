@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
+using TaaleemAcademy.API.Mappings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,9 @@ builder.Services.AddSwaggerGen();
 // Add DbContext with SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(MappingProfile));
 
 // Add CORS
 builder.Services.AddCors(options =>
