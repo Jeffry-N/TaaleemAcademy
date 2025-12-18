@@ -20,7 +20,6 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
-        // GET: All Users
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
@@ -36,7 +35,6 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // GET: User by ID
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetUserById(int id)
         {
@@ -58,7 +56,6 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // POST: Create User
         [HttpPost]
         public async Task<ActionResult<UserDto>> CreateUser(CreateUserDto createUserDto)
         {
@@ -92,7 +89,6 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // PUT: Update User
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto updateUserDto)
         {
@@ -130,7 +126,6 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // DELETE: Delete User
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
