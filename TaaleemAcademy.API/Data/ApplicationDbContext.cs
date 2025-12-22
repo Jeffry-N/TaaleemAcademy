@@ -24,6 +24,7 @@ namespace TaaleemAcademy.API.Data
         public DbSet<QuizAttempt> QuizAttempts { get; set; }
         public DbSet<StudentAnswer> StudentAnswers { get; set; }
         public DbSet<Certificate> Certificates { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -154,6 +155,16 @@ namespace TaaleemAcademy.API.Data
                 entity.HasIndex(e => new { e.UserId, e.CourseId }).IsUnique();
                 entity.Property(e => e.GeneratedAt).HasDefaultValueSql("GETDATE()");
             });
+
+            // RefreshToken configuration
+            modelBuilder.Entity<RefreshToken>(entity =>
+{
+                entity.ToTable("RefreshToken");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Token);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+                entity.Property(e => e.IsRevoked).HasDefaultValue(false);
+        });
         }
     }
 }
