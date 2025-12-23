@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
@@ -20,7 +21,9 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // GET: api/Course - Public (anyone can view published courses)
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<CourseDto>>> GetAllCourses()
         {
             try
@@ -35,7 +38,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/Course/5 - Public
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<CourseDto>> GetCourseById(int id)
         {
             try
@@ -45,6 +50,7 @@ namespace TaaleemAcademy.API.Controllers
                 {
                     return NotFound(new { message = $"Course with ID {id} not found" });
                 }
+
                 var courseDto = _mapper.Map<CourseDto>(course);
                 return Ok(courseDto);
             }
@@ -54,7 +60,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/Course - Instructor or Admin
         [HttpPost]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<ActionResult<CourseDto>> CreateCourse(CreateCourseDto createCourseDto)
         {
             try
@@ -77,7 +85,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/Course/5 - Instructor or Admin
         [HttpPut("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> UpdateCourse(int id, UpdateCourseDto updateCourseDto)
         {
             try
@@ -111,7 +121,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/Course/5 - Only Admin
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> DeleteCourse(int id)
         {
             try

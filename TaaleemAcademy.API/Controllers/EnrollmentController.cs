@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -9,6 +11,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class EnrollmentController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,12 +23,34 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // Helper methods
+        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // GET: api/Enrollment - Admin/Instructor see all, Students see only their own
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EnrollmentDto>>> GetAllEnrollments()
         {
             try
             {
-                var enrollments = await _context.Enrollments.ToListAsync();
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                List<Enrollment> enrollments;
+
+                // Admin and Instructor can see all enrollments
+                if (currentUserRole == "Admin" || currentUserRole == "Instructor")
+                {
+                    enrollments = await _context.Enrollments.ToListAsync();
+                }
+                else
+                {
+                    // Students only see their own enrollments
+                    enrollments = await _context.Enrollments
+                        .Where(e => e.UserId == currentUserId)
+                        .ToListAsync();
+                }
+
                 var enrollmentDtos = _mapper.Map<List<EnrollmentDto>>(enrollments);
                 return Ok(enrollmentDtos);
             }
@@ -35,6 +60,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/Enrollment/5 - Admin/Instructor can view any, Students only their own
         [HttpGet("{id}")]
         public async Task<ActionResult<EnrollmentDto>> GetEnrollmentById(int id)
         {
@@ -45,6 +71,16 @@ namespace TaaleemAcademy.API.Controllers
                 {
                     return NotFound(new { message = $"Enrollment with ID {id} not found" });
                 }
+
+                // Check permissions
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                if (enrollment.UserId != currentUserId && currentUserRole != "Admin" && currentUserRole != "Instructor")
+                {
+                    return StatusCode(403, new { message = "You don't have permission to view this enrollment" });
+                }
+
                 var enrollmentDto = _mapper.Map<EnrollmentDto>(enrollment);
                 return Ok(enrollmentDto);
             }
@@ -54,6 +90,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/Enrollment - Students can enroll themselves, Admin can enroll anyone
         [HttpPost]
         public async Task<ActionResult<EnrollmentDto>> CreateEnrollment(CreateEnrollmentDto createEnrollmentDto)
         {
@@ -62,6 +99,15 @@ namespace TaaleemAcademy.API.Controllers
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
+                }
+
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // Students can only enroll themselves
+                if (currentUserRole == "Student" && createEnrollmentDto.UserId != currentUserId)
+                {
+                    return StatusCode(403, new { message = "You can only enroll yourself" });
                 }
 
                 // Check if already enrolled
@@ -86,7 +132,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/Enrollment/5 - Only Admin or Instructor can update enrollments
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Instructor")]
         public async Task<IActionResult> UpdateEnrollment(int id, UpdateEnrollmentDto updateEnrollmentDto)
         {
             try
@@ -120,6 +168,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/Enrollment/5 - Students can unenroll themselves, Admin/Instructor can delete any
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEnrollment(int id)
         {
@@ -129,6 +178,16 @@ namespace TaaleemAcademy.API.Controllers
                 if (enrollment == null)
                 {
                     return NotFound(new { message = $"Enrollment with ID {id} not found" });
+                }
+
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // Students can only delete their own enrollments
+                // Admin and Instructor can delete any enrollment
+                if (currentUserRole == "Student" && enrollment.UserId != currentUserId)
+                {
+                    return StatusCode(403, new { message = "You can only unenroll yourself" });
                 }
 
                 _context.Enrollments.Remove(enrollment);

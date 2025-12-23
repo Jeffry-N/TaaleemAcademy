@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
@@ -20,7 +21,9 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // GET: api/Category - Public (anyone can view categories)
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<CategoryDto>>> GetAllCategories()
         {
             try
@@ -35,13 +38,14 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/Category/5 - Public
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<CategoryDto>> GetCategoryById(int id)
         {
             try
             {
                 var category = await _context.Categories.FindAsync(id);
-
                 if (category == null)
                 {
                     return NotFound(new { message = $"Category with ID {id} not found" });
@@ -56,7 +60,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/Category - Only Admin
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<CategoryDto>> CreateCategory(CreateCategoryDto createCategoryDto)
         {
             try
@@ -66,7 +72,6 @@ namespace TaaleemAcademy.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                // Check if name or slug already exists
                 var existingCategory = await _context.Categories
                     .FirstOrDefaultAsync(c => c.Name == createCategoryDto.Name || c.Slug == createCategoryDto.Slug);
                 
@@ -76,7 +81,6 @@ namespace TaaleemAcademy.API.Controllers
                 }
 
                 var category = _mapper.Map<Category>(createCategoryDto);
-                
                 _context.Categories.Add(category);
                 await _context.SaveChangesAsync();
 
@@ -89,7 +93,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/Category/5 - Only Admin
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateCategory(int id, UpdateCategoryDto updateCategoryDto)
         {
             try
@@ -111,7 +117,6 @@ namespace TaaleemAcademy.API.Controllers
                 }
 
                 _mapper.Map(updateCategoryDto, existingCategory);
-
                 _context.Entry(existingCategory).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
 
@@ -124,7 +129,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/Category/5 - Only Admin
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
             try

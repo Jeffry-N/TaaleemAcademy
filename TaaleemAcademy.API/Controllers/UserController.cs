@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -9,6 +11,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,7 +23,13 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // Helper methods
+        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // GET: api/User - Only Admin can view all users
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
             try
@@ -35,13 +44,22 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/User/5 - Users can view their own profile OR Admin can view any
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetUserById(int id)
         {
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
 
+                // Check permissions
+                if (currentUserId != id && currentUserRole != "Admin")
+                {
+                    return StatusCode(403, new { message = "You don't have permission to view this user" });
+                }
+
+                var user = await _context.Users.FindAsync(id);
                 if (user == null)
                 {
                     return NotFound(new { message = $"User with ID {id} not found" });
@@ -56,39 +74,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        [HttpPost]
-        public async Task<ActionResult<UserDto>> CreateUser(CreateUserDto createUserDto)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                // Check if email already exists
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == createUserDto.Email);
-                if (existingUser != null)
-                {
-                    return Conflict(new { message = "Email already exists" });
-                }
-
-                // Map DTO to Entity
-                var user = _mapper.Map<User>(createUserDto);
-                
-
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-
-                var userDto = _mapper.Map<UserDto>(user);
-                return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, userDto);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Error creating user", error = ex.Message });
-            }
-        }
-
+        // PUT: api/User/5 - Users can update themselves OR Admin can update any
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto updateUserDto)
         {
@@ -97,6 +83,14 @@ namespace TaaleemAcademy.API.Controllers
                 if (id != updateUserDto.Id)
                 {
                     return BadRequest(new { message = "ID mismatch" });
+                }
+
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                if (currentUserId != id && currentUserRole != "Admin")
+                {
+                    return StatusCode(403, new { message = "You don't have permission to update this user" });
                 }
 
                 if (!ModelState.IsValid)
@@ -110,10 +104,7 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"User with ID {id} not found" });
                 }
 
-                // Map DTO to existing entity
                 _mapper.Map(updateUserDto, existingUser);
-
-
                 _context.Entry(existingUser).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
 
@@ -126,7 +117,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/User/5 - Only Admin
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             try

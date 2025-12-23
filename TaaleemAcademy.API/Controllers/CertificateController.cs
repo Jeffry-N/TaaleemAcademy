@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -9,6 +11,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class CertificateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,12 +23,34 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // Helper methods
+        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // GET: api/Certificate - Admin/Instructor see all, Students see only their own
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CertificateDto>>> GetAllCertificates()
         {
             try
             {
-                var certificates = await _context.Certificates.ToListAsync();
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                List<Certificate> certificates;
+
+                // Admin and Instructor can see all certificates
+                if (currentUserRole == "Admin" || currentUserRole == "Instructor")
+                {
+                    certificates = await _context.Certificates.ToListAsync();
+                }
+                else
+                {
+                    // Students only see their own certificates
+                    certificates = await _context.Certificates
+                        .Where(c => c.UserId == currentUserId)
+                        .ToListAsync();
+                }
+
                 var certificateDtos = _mapper.Map<List<CertificateDto>>(certificates);
                 return Ok(certificateDtos);
             }
@@ -35,6 +60,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/Certificate/5 - Admin/Instructor can view any, Students only their own
         [HttpGet("{id}")]
         public async Task<ActionResult<CertificateDto>> GetCertificateById(int id)
         {
@@ -47,6 +73,15 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"Certificate with ID {id} not found" });
                 }
 
+                // Check permissions
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                if (certificate.UserId != currentUserId && currentUserRole != "Admin" && currentUserRole != "Instructor")
+                {
+                    return StatusCode(403, new { message = "You don't have permission to view this certificate" });
+                }
+
                 var certificateDto = _mapper.Map<CertificateDto>(certificate);
                 return Ok(certificateDto);
             }
@@ -56,7 +91,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/Certificate - Only Admin or Instructor can issue certificates
         [HttpPost]
+        [Authorize(Roles = "Admin,Instructor")]
         public async Task<ActionResult<CertificateDto>> CreateCertificate(CreateCertificateDto createCertificateDto)
         {
             try
@@ -98,7 +135,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/Certificate/5 - Only Admin or Instructor can update
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Instructor")]
         public async Task<IActionResult> UpdateCertificate(int id, UpdateCertificateDto updateCertificateDto)
         {
             try
@@ -132,7 +171,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/Certificate/5 - Only Admin
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteCertificate(int id)
         {
             try
