@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
@@ -9,6 +10,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class StudentAnswerController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,7 +22,9 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // GET: api/StudentAnswer - Admin/Instructor only
         [HttpGet]
+        [Authorize(Roles = "Admin,Instructor")]
         public async Task<ActionResult<IEnumerable<StudentAnswerDto>>> GetAllStudentAnswers()
         {
             try
@@ -35,6 +39,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/StudentAnswer/5 - Authenticated users
         [HttpGet("{id}")]
         public async Task<ActionResult<StudentAnswerDto>> GetStudentAnswerById(int id)
         {
@@ -56,6 +61,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/StudentAnswer - Authenticated users
         [HttpPost]
         public async Task<ActionResult<StudentAnswerDto>> CreateStudentAnswer(CreateStudentAnswerDto createStudentAnswerDto)
         {
@@ -80,6 +86,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/StudentAnswer/5 - Authenticated users
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateStudentAnswer(int id, UpdateStudentAnswerDto updateStudentAnswerDto)
         {
@@ -114,7 +121,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/StudentAnswer/5 - Admin only
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteStudentAnswer(int id)
         {
             try
