@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
@@ -9,6 +10,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class QuizController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,6 +22,8 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // GET: api/Quiz - Authenticated users can view quizzes
+        // TODO: Filter to show only quizzes from courses the student is enrolled in
         [HttpGet]
         public async Task<ActionResult<IEnumerable<QuizDto>>> GetAll()
         {
@@ -27,6 +31,8 @@ namespace TaaleemAcademy.API.Controllers
             return Ok(_mapper.Map<List<QuizDto>>(items));
         }
 
+        // GET: api/Quiz/5 - Authenticated users can view quiz
+        // TODO: Check if user is enrolled in the course that contains this quiz
         [HttpGet("{id}")]
         public async Task<ActionResult<QuizDto>> GetById(int id)
         {
@@ -35,7 +41,9 @@ namespace TaaleemAcademy.API.Controllers
             return Ok(_mapper.Map<QuizDto>(item));
         }
 
+        // POST: api/Quiz - Only Instructor or Admin can create quizzes
         [HttpPost]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<ActionResult<QuizDto>> Create(CreateQuizDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -45,7 +53,9 @@ namespace TaaleemAcademy.API.Controllers
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, _mapper.Map<QuizDto>(item));
         }
 
+        // PUT: api/Quiz/5 - Only Instructor or Admin can update quizzes
         [HttpPut("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> Update(int id, UpdateQuizDto dto)
         {
             if (id != dto.Id) return BadRequest();
@@ -56,7 +66,9 @@ namespace TaaleemAcademy.API.Controllers
             return Ok(_mapper.Map<QuizDto>(existing));
         }
 
+        // DELETE: api/Quiz/5 - Only Instructor or Admin can delete quizzes
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var item = await _context.Quizzes.FindAsync(id);

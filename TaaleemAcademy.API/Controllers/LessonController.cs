@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaaleemAcademy.API.Data;
@@ -9,6 +10,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class LessonController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,6 +22,8 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // GET: api/Lesson - Authenticated users can view lessons
+        // TODO: Filter to show only lessons from courses the student is enrolled in
         [HttpGet]
         public async Task<ActionResult<IEnumerable<LessonDto>>> GetAllLessons()
         {
@@ -34,6 +38,8 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/Lesson/5 - Authenticated users can view lesson
+        // TODO: Check if user is enrolled in the course that contains this lesson
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonDto>> GetLessonById(int id)
         {
@@ -49,7 +55,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/Lesson - Only Instructor or Admin can create lessons
         [HttpPost]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<ActionResult<LessonDto>> CreateLesson(CreateLessonDto createLessonDto)
         {
             try
@@ -66,7 +74,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/Lesson/5 - Only Instructor or Admin can update lessons
         [HttpPut("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> UpdateLesson(int id, UpdateLessonDto updateLessonDto)
         {
             try
@@ -85,7 +95,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/Lesson/5 - Only Instructor or Admin can delete lessons
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> DeleteLesson(int id)
         {
             try

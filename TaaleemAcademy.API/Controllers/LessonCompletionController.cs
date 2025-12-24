@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -9,6 +11,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class LessonCompletionController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,26 +23,69 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // Helper methods
+        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // GET: api/LessonCompletion - Admin/Instructor see all, Students see only their own
         [HttpGet]
         public async Task<ActionResult<IEnumerable<LessonCompletionDto>>> GetAll()
         {
-            var items = await _context.LessonCompletions.ToListAsync();
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+
+            List<LessonCompletion> items;
+
+            // Admin and Instructor can see all completions
+            if (currentUserRole == "Admin" || currentUserRole == "Instructor")
+            {
+                items = await _context.LessonCompletions.ToListAsync();
+            }
+            else
+            {
+                // Students only see their own completions
+                items = await _context.LessonCompletions
+                    .Where(lc => lc.UserId == currentUserId)
+                    .ToListAsync();
+            }
+
             return Ok(_mapper.Map<List<LessonCompletionDto>>(items));
         }
 
+        // GET: api/LessonCompletion/5 - Admin/Instructor can view any, Students only their own
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonCompletionDto>> GetById(int id)
         {
             var item = await _context.LessonCompletions.FindAsync(id);
             if (item == null) return NotFound();
+
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+
+            // Check permissions
+            if (item.UserId != currentUserId && currentUserRole != "Admin" && currentUserRole != "Instructor")
+            {
+                return StatusCode(403, new { message = "You don't have permission to view this completion" });
+            }
+
             return Ok(_mapper.Map<LessonCompletionDto>(item));
         }
 
+        // POST: api/LessonCompletion - Students mark their own lessons complete
         [HttpPost]
         public async Task<ActionResult<LessonCompletionDto>> Create(CreateLessonCompletionDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            
+
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+
+            // Students can only mark their own lessons as complete
+            if (currentUserRole == "Student" && dto.UserId != currentUserId)
+            {
+                return StatusCode(403, new { message = "You can only mark your own lessons as complete" });
+            }
+
             // Check if already completed
             var existing = await _context.LessonCompletions
                 .FirstOrDefaultAsync(lc => lc.LessonId == dto.LessonId && lc.UserId == dto.UserId);
@@ -51,7 +97,9 @@ namespace TaaleemAcademy.API.Controllers
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, _mapper.Map<LessonCompletionDto>(item));
         }
 
+        // PUT: api/LessonCompletion/5 - Only Admin or Instructor can update completion records
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Instructor")]
         public async Task<IActionResult> Update(int id, UpdateLessonCompletionDto dto)
         {
             if (id != dto.Id) return BadRequest();
@@ -62,11 +110,22 @@ namespace TaaleemAcademy.API.Controllers
             return Ok(_mapper.Map<LessonCompletionDto>(existing));
         }
 
+        // DELETE: api/LessonCompletion/5 - Students can delete their own, Admin/Instructor can delete any
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             var item = await _context.LessonCompletions.FindAsync(id);
             if (item == null) return NotFound();
+
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+
+            // Students can only delete their own completions
+            if (currentUserRole == "Student" && item.UserId != currentUserId)
+            {
+                return StatusCode(403, new { message = "You can only delete your own completion records" });
+            }
+
             _context.LessonCompletions.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new { message = "Deleted", id });

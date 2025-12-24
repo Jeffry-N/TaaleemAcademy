@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -9,6 +11,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class QuizAttemptController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,12 +23,34 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // Helper methods
+        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // GET: api/QuizAttempt - Admin/Instructor see all, Students see only their own
         [HttpGet]
         public async Task<ActionResult<IEnumerable<QuizAttemptDto>>> GetAllQuizAttempts()
         {
             try
             {
-                var quizAttempts = await _context.QuizAttempts.ToListAsync();
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                List<QuizAttempt> quizAttempts;
+
+                // Admin and Instructor can see all attempts
+                if (currentUserRole == "Admin" || currentUserRole == "Instructor")
+                {
+                    quizAttempts = await _context.QuizAttempts.ToListAsync();
+                }
+                else
+                {
+                    // Students only see their own attempts
+                    quizAttempts = await _context.QuizAttempts
+                        .Where(qa => qa.UserId == currentUserId)
+                        .ToListAsync();
+                }
+
                 var quizAttemptDtos = _mapper.Map<List<QuizAttemptDto>>(quizAttempts);
                 return Ok(quizAttemptDtos);
             }
@@ -35,6 +60,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/QuizAttempt/5 - Admin/Instructor can view any, Students only their own
         [HttpGet("{id}")]
         public async Task<ActionResult<QuizAttemptDto>> GetQuizAttemptById(int id)
         {
@@ -47,6 +73,15 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"Quiz attempt with ID {id} not found" });
                 }
 
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // Check permissions
+                if (quizAttempt.UserId != currentUserId && currentUserRole != "Admin" && currentUserRole != "Instructor")
+                {
+                    return StatusCode(403, new { message = "You don't have permission to view this quiz attempt" });
+                }
+
                 var quizAttemptDto = _mapper.Map<QuizAttemptDto>(quizAttempt);
                 return Ok(quizAttemptDto);
             }
@@ -56,6 +91,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/QuizAttempt - Students create their own attempts
         [HttpPost]
         public async Task<ActionResult<QuizAttemptDto>> CreateQuizAttempt(CreateQuizAttemptDto createQuizAttemptDto)
         {
@@ -64,6 +100,15 @@ namespace TaaleemAcademy.API.Controllers
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
+                }
+
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // Students can only create their own attempts
+                if (currentUserRole == "Student" && createQuizAttemptDto.UserId != currentUserId)
+                {
+                    return StatusCode(403, new { message = "You can only create quiz attempts for yourself" });
                 }
 
                 var quizAttempt = _mapper.Map<QuizAttempt>(createQuizAttemptDto);
@@ -80,6 +125,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/QuizAttempt/5 - Students can update their own, Admin/Instructor can update any
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateQuizAttempt(int id, UpdateQuizAttemptDto updateQuizAttemptDto)
         {
@@ -101,6 +147,15 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"Quiz attempt with ID {id} not found" });
                 }
 
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // Students can only update their own attempts
+                if (currentUserRole == "Student" && existingQuizAttempt.UserId != currentUserId)
+                {
+                    return StatusCode(403, new { message = "You can only update your own quiz attempts" });
+                }
+
                 _mapper.Map(updateQuizAttemptDto, existingQuizAttempt);
                 _context.Entry(existingQuizAttempt).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
@@ -114,7 +169,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/QuizAttempt/5 - Only Instructor or Admin can delete quiz attempts
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> DeleteQuizAttempt(int id)
         {
             try

@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -9,6 +11,7 @@ namespace TaaleemAcademy.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // All endpoints require authentication
     public class LessonAttachmentController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -20,6 +23,10 @@ namespace TaaleemAcademy.API.Controllers
             _mapper = mapper;
         }
 
+        // Helper method
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // GET: api/LessonAttachment - Authenticated users can view attachments
         [HttpGet]
         public async Task<ActionResult<IEnumerable<LessonAttachmentDto>>> GetAll()
         {
@@ -34,6 +41,8 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // GET: api/LessonAttachment/5 - Authenticated users can view attachment
+        // TODO: Check if user is enrolled in the course that contains this lesson
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonAttachmentDto>> GetById(int id)
         {
@@ -49,7 +58,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // POST: api/LessonAttachment - Only Instructor or Admin can create attachments
         [HttpPost]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<ActionResult<LessonAttachmentDto>> Create(CreateLessonAttachmentDto dto)
         {
             try
@@ -66,7 +77,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // PUT: api/LessonAttachment/5 - Only Instructor or Admin can update
         [HttpPut("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> Update(int id, UpdateLessonAttachmentDto dto)
         {
             try
@@ -84,7 +97,9 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
+        // DELETE: api/LessonAttachment/5 - Only Instructor or Admin can delete
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             try
