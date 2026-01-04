@@ -1,0 +1,222 @@
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Clock, CheckCircle, Play, Layers, ArrowLeft, Sparkles } from 'lucide-react';
+import { AppShell } from '../components/AppShell';
+import { Spinner } from '../components/Spinner';
+import { ErrorBanner } from '../components/ErrorBanner';
+import {
+  createEnrollment,
+  fetchCourseById,
+  fetchEnrollments,
+  fetchLessonCompletions,
+  fetchLessons,
+  markLessonComplete,
+} from '../api/taaleem';
+import { parseApiError } from '../api/client';
+import type { Lesson } from '../types/api';
+import { useAuth } from '../context/AuthContext';
+
+export const CourseDetailsPage = () => {
+  const { id } = useParams();
+  const courseId = Number(id);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const {
+    data: course,
+    isLoading: isCourseLoading,
+    error: courseError,
+  } = useQuery({ queryKey: ['course', courseId], queryFn: () => fetchCourseById(courseId), enabled: !!courseId });
+
+  const { data: lessons, isLoading: lessonsLoading, error: lessonsError } = useQuery({
+    queryKey: ['lessons'],
+    queryFn: fetchLessons,
+  });
+
+  const { data: completions, isLoading: completionsLoading, error: completionsError } = useQuery({
+    queryKey: ['lessonCompletions'],
+    queryFn: fetchLessonCompletions,
+  });
+
+  const { data: enrollments } = useQuery({
+    queryKey: ['enrollments'],
+    queryFn: fetchEnrollments,
+  });
+
+  const enrollMutation = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error('You must be logged in to enroll.');
+      return createEnrollment(user.userId, courseId);
+    },
+    onSuccess: () => {
+      setFeedback('Enrolled successfully');
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    },
+    onError: (error) => setFeedback(parseApiError(error)),
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: (lessonId: number) => {
+      if (!user) throw new Error('You must be logged in.');
+      return markLessonComplete(lessonId, user.userId);
+    },
+    onSuccess: () => {
+      setFeedback('Lesson marked complete');
+      queryClient.invalidateQueries({ queryKey: ['lessonCompletions'] });
+    },
+    onError: (error) => setFeedback(parseApiError(error)),
+  });
+
+  const courseLessons = useMemo(() => {
+    return (lessons || []).filter((l) => l.courseId === courseId).sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [lessons, courseId]);
+
+  const completedLessonIds = useMemo(() => new Set((completions || []).map((c) => c.lessonId)), [completions]);
+
+  const progress = useMemo(() => {
+    if (!courseLessons.length) return 0;
+    return Math.round((completedLessonIds.size / courseLessons.length) * 100);
+  }, [courseLessons, completedLessonIds]);
+
+  const isEnrolled = enrollments?.some((e) => e.courseId === courseId) ?? false;
+
+  const firstIncomplete = courseLessons.find((l) => !completedLessonIds.has(l.id));
+
+  const loading = isCourseLoading || lessonsLoading || completionsLoading;
+  const errorMsg = courseError
+    ? parseApiError(courseError)
+    : lessonsError
+      ? parseApiError(lessonsError)
+      : completionsError
+        ? parseApiError(completionsError)
+        : null;
+
+  const handleStart = () => {
+    const targetId = firstIncomplete?.id ?? courseLessons[0]?.id;
+    if (!targetId) return;
+    const el = document.getElementById(`lesson-${targetId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleMarkComplete = (lesson: Lesson) => {
+    setFeedback(null);
+    completeMutation.mutate(lesson.id);
+  };
+
+  return (
+    <AppShell>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center space-x-2 text-sm font-semibold text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
+        </button>
+
+        {loading && <Spinner />}
+        {errorMsg && <ErrorBanner message={errorMsg} />}
+
+        {!loading && course && (
+          <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-blue-50">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {course.difficulty}
+                </p>
+                <h1 className="mt-3 text-3xl font-bold lg:text-4xl">{course.title}</h1>
+                <p className="mt-3 max-w-3xl text-blue-100">{course.longDescription ?? course.shortDescription}</p>
+                <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-blue-100">
+                  <span className="inline-flex items-center space-x-2"><Clock className="h-4 w-4" /><span>{course.estimatedDuration ? `${course.estimatedDuration} min` : 'Self paced'}</span></span>
+                  <span className="inline-flex items-center space-x-2"><Layers className="h-4 w-4" /><span>{courseLessons.length} lessons</span></span>
+                </div>
+              </div>
+              <div className="w-full max-w-sm rounded-xl bg-white/10 p-5 shadow-lg backdrop-blur">
+                <div className="mb-2 text-sm text-blue-100">Progress</div>
+                <div className="text-3xl font-bold">{progress}%</div>
+                <div className="mt-2 h-2 w-full rounded-full bg-white/20">
+                  <div className="h-2 rounded-full bg-white" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="mt-5 flex flex-col gap-3">
+                  {!isEnrolled ? (
+                    <button
+                      onClick={() => enrollMutation.mutate()}
+                      className="rounded-lg bg-white py-3 text-center text-blue-700 transition hover:bg-blue-50"
+                      disabled={enrollMutation.isPending}
+                    >
+                      {enrollMutation.isPending ? 'Enrolling...' : 'Enroll to start'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleStart}
+                      className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
+                    >
+                      <Play className="h-5 w-5" />
+                      <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {feedback && <div className="text-sm text-blue-700">{feedback}</div>}
+
+        {!loading && courseLessons.length > 0 && (
+          <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Lessons</h2>
+              <span className="text-sm text-gray-500">{completedLessonIds.size}/{courseLessons.length} completed</span>
+            </div>
+            <div className="space-y-3">
+              {courseLessons.map((lesson) => {
+                const completed = completedLessonIds.has(lesson.id);
+                return (
+                  <div
+                    key={lesson.id}
+                    id={`lesson-${lesson.id}`}
+                    className="flex flex-col justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 shadow-sm lg:flex-row lg:items-center"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className={`mt-1 h-3 w-3 rounded-full ${completed ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
+                        <p className="text-sm text-gray-600">{lesson.lessonType} • {lesson.estimatedDuration ? `${lesson.estimatedDuration} min` : 'Self paced'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-500">Order {lesson.orderIndex}</span>
+                      <button
+                        onClick={() => handleMarkComplete(lesson)}
+                        disabled={completed || completeMutation.isPending}
+                        className={`inline-flex items-center space-x-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                          completed ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+                        } disabled:opacity-60`}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        <span>{completed ? 'Completed' : 'Mark complete'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!loading && courseLessons.length === 0 && !errorMsg && (
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-600">
+            No lessons found for this course yet.
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+};
