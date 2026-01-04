@@ -12,6 +12,15 @@ import { useAuth } from '../context/AuthContext';
 
 const difficultyOptions = ['All', 'Beginner', 'Intermediate', 'Advanced'];
 
+const formatDuration = (minutes: number | null | undefined): string => {
+  if (!minutes) return 'Self paced';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) return `${hours} hr${hours > 1 ? 's' : ''}`;
+  return `${hours}h ${mins}m`;
+};
+
 export const CourseListPage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -135,23 +144,28 @@ export const CourseListPage = () => {
             {filteredCourses.map((course) => {
               const category = categories?.find((c) => c.id === course.categoryId);
               return (
-                <div key={course.id} className="flex h-full flex-col rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{category?.name ?? 'Course'}</p>
-                      <h3 className="mt-1 text-xl font-bold text-gray-900">{course.title}</h3>
-                      <p className="mt-2 max-h-12 overflow-hidden text-ellipsis text-sm text-gray-600">{course.shortDescription ?? 'No description provided.'}</p>
-                    </div>
+                <div key={course.id} className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+                  {course.thumbnailUrl && (
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="h-48 w-full object-cover"
+                    />
+                  )}
+                  <div className="flex flex-col p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{category?.name ?? 'Course'}</p>
+                    <h3 className="mt-1 text-xl font-bold text-gray-900">{course.title}</h3>
+                    <p className="mt-2 max-h-12 overflow-hidden text-ellipsis text-sm text-gray-600">{course.shortDescription ?? 'No description provided.'}</p>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-gray-500">
+                  <div className="flex flex-wrap gap-3 px-5 text-sm text-gray-500">
                     <span className="inline-flex items-center space-x-1 rounded-full bg-gray-100 px-3 py-1">
                       <BookOpen className="h-4 w-4" />
                       <span>{course.difficulty}</span>
                     </span>
                     <span className="inline-flex items-center space-x-1 rounded-full bg-gray-100 px-3 py-1">
                       <Clock className="h-4 w-4" />
-                      <span>{course.estimatedDuration ? `${course.estimatedDuration} min` : 'Self paced'}</span>
+                      <span>{formatDuration(course.estimatedDuration)}</span>
                     </span>
                     <span className="inline-flex items-center space-x-1 rounded-full bg-gray-100 px-3 py-1">
                       <User className="h-4 w-4" />
@@ -159,7 +173,7 @@ export const CourseListPage = () => {
                     </span>
                   </div>
 
-                  <div className="mt-auto flex items-center justify-between pt-5">
+                  <div className="mt-auto flex items-center justify-between p-5 pt-5">
                     <div className="flex items-center space-x-1 text-sm font-semibold text-amber-500">
                       <Star className="h-4 w-4" />
                       <span>4.8</span>

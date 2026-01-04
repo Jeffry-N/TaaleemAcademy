@@ -17,6 +17,15 @@ import { parseApiError } from '../api/client';
 import type { Lesson } from '../types/api';
 import { useAuth } from '../context/AuthContext';
 
+const formatDuration = (minutes: number | null | undefined): string => {
+  if (!minutes) return 'Self paced';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) return `${hours} hr${hours > 1 ? 's' : ''}`;
+  return `${hours}h ${mins}m`;
+};
+
 export const CourseDetailsPage = () => {
   const { id } = useParams();
   const courseId = Number(id);
@@ -123,44 +132,54 @@ export const CourseDetailsPage = () => {
         {errorMsg && <ErrorBanner message={errorMsg} />}
 
         {!loading && course && (
-          <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-blue-50">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {course.difficulty}
-                </p>
-                <h1 className="mt-3 text-3xl font-bold lg:text-4xl">{course.title}</h1>
-                <p className="mt-3 max-w-3xl text-blue-100">{course.longDescription ?? course.shortDescription}</p>
-                <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-blue-100">
-                  <span className="inline-flex items-center space-x-2"><Clock className="h-4 w-4" /><span>{course.estimatedDuration ? `${course.estimatedDuration} min` : 'Self paced'}</span></span>
-                  <span className="inline-flex items-center space-x-2"><Layers className="h-4 w-4" /><span>{courseLessons.length} lessons</span></span>
+          <div 
+            className="relative overflow-hidden rounded-2xl text-white shadow-xl"
+            style={{
+              backgroundImage: course.thumbnailUrl ? `url(${course.thumbnailUrl})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 to-indigo-900/90" />
+            <div className="relative p-8">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex-1">
+                  <p className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-blue-50">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {course.difficulty}
+                  </p>
+                  <h1 className="mt-3 text-3xl font-bold lg:text-4xl">{course.title}</h1>
+                  <p className="mt-3 max-w-3xl text-blue-100">{course.longDescription ?? course.shortDescription}</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-blue-100">
+                    <span className="inline-flex items-center space-x-2"><Clock className="h-4 w-4" /><span>{formatDuration(course.estimatedDuration)}</span></span>
+                    <span className="inline-flex items-center space-x-2"><Layers className="h-4 w-4" /><span>{courseLessons.length} lessons</span></span>
+                  </div>
                 </div>
-              </div>
-              <div className="w-full max-w-sm rounded-xl bg-white/10 p-5 shadow-lg backdrop-blur">
-                <div className="mb-2 text-sm text-blue-100">Progress</div>
-                <div className="text-3xl font-bold">{progress}%</div>
-                <div className="mt-2 h-2 w-full rounded-full bg-white/20">
-                  <div className="h-2 rounded-full bg-white" style={{ width: `${progress}%` }} />
-                </div>
-                <div className="mt-5 flex flex-col gap-3">
-                  {!isEnrolled ? (
-                    <button
-                      onClick={() => enrollMutation.mutate()}
-                      className="rounded-lg bg-white py-3 text-center text-blue-700 transition hover:bg-blue-50"
-                      disabled={enrollMutation.isPending}
-                    >
-                      {enrollMutation.isPending ? 'Enrolling...' : 'Enroll to start'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleStart}
-                      className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
-                    >
-                      <Play className="h-5 w-5" />
-                      <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
-                    </button>
-                  )}
+                <div className="w-full lg:w-80 shrink-0 rounded-xl bg-white/10 p-5 shadow-lg backdrop-blur">
+                  <div className="mb-2 text-sm text-blue-100">Progress</div>
+                  <div className="text-3xl font-bold">{progress}%</div>
+                  <div className="mt-2 h-2 w-full rounded-full bg-white/20">
+                    <div className="h-2 rounded-full bg-white" style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="mt-5 flex flex-col gap-3">
+                    {!isEnrolled ? (
+                      <button
+                        onClick={() => enrollMutation.mutate()}
+                        className="rounded-lg bg-white py-3 text-center text-blue-700 transition hover:bg-blue-50"
+                        disabled={enrollMutation.isPending}
+                      >
+                        {enrollMutation.isPending ? 'Enrolling...' : 'Enroll to start'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleStart}
+                        className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
+                      >
+                        <Play className="h-5 w-5" />
+                        <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -188,7 +207,7 @@ export const CourseDetailsPage = () => {
                       <div className={`mt-1 h-3 w-3 rounded-full ${completed ? 'bg-green-500' : 'bg-gray-300'}`} />
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
-                        <p className="text-sm text-gray-600">{lesson.lessonType} • {lesson.estimatedDuration ? `${lesson.estimatedDuration} min` : 'Self paced'}</p>
+                        <p className="text-sm text-gray-600">{lesson.lessonType} • {formatDuration(lesson.estimatedDuration)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
