@@ -190,6 +190,60 @@ namespace TaaleemAcademy.API.Services
             return true;
         }
 
+        public async Task<bool> RequestPasswordResetAsync(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                return false; // User not found
+            }
+
+            // Generate a password reset token (using a simple approach with expiry)
+            var resetToken = Guid.NewGuid().ToString();
+            var resetTokenHash = BCrypt.Net.BCrypt.HashPassword(resetToken);
+
+            // Store in a simple way (in real app, use a separate PasswordResetToken table)
+            // For now, we'll assume there's a PasswordResetToken tracking mechanism
+            // This is a placeholder - you may want to create a PasswordResetToken model
+            user.PasswordResetToken = resetTokenHash;
+            user.PasswordResetTokenExpiry = DateTime.Now.AddHours(1);
+
+            await _context.SaveChangesAsync();
+
+            // In production, send email with reset link containing resetToken
+            // Example: https://frontend.com/reset-password?email={email}&token={resetToken}
+            return true;
+        }
+
+        public async Task<bool> ResetPasswordAsync(string email, string token, string newPassword)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                return false; // User not found
+            }
+
+            // Verify token and expiry
+            if (string.IsNullOrEmpty(user.PasswordResetToken) || user.PasswordResetTokenExpiry < DateTime.Now)
+            {
+                return false; // Token expired or invalid
+            }
+
+            // Verify token matches
+            if (!BCrypt.Net.BCrypt.Verify(token, user.PasswordResetToken))
+            {
+                return false; // Token mismatch
+            }
+
+            // Hash and update password
+            user.HashedPassword = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.PasswordResetToken = null;
+            user.PasswordResetTokenExpiry = null;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));

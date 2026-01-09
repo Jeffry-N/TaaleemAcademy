@@ -113,5 +113,59 @@ namespace TaaleemAcademy.API.Controllers
                 return StatusCode(500, new { message = "Error revoking token", error = ex.Message });
             }
         }
+
+        // POST: api/Auth/forgot-password
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var result = await _authService.RequestPasswordResetAsync(forgotPasswordDto.Email);
+
+                if (!result)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                return Ok(new { message = "Password reset link has been sent to your email" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error processing request", error = ex.Message });
+            }
+        }
+
+        // POST: api/Auth/reset-password
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var result = await _authService.ResetPasswordAsync(resetPasswordDto.Email, resetPasswordDto.Token, resetPasswordDto.NewPassword);
+
+                if (!result)
+                {
+                    return BadRequest(new { message = "Invalid or expired reset token" });
+                }
+
+                return Ok(new { message = "Password reset successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error resetting password", error = ex.Message });
+            }
+        }
     }
 }

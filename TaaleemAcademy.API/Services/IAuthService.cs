@@ -9,6 +9,8 @@ namespace TaaleemAcademy.API.Services
         Task<AuthResponseDto?> LoginAsync(LoginDto loginDto);
         Task<AuthResponseDto?> RefreshTokenAsync(string refreshToken);
         Task<bool> RevokeTokenAsync(string refreshToken);
+        Task<bool> RequestPasswordResetAsync(string email);
+        Task<bool> ResetPasswordAsync(string email, string token, string newPassword);
         string GenerateJwtToken(User user);
         string GenerateRefreshToken();
     }

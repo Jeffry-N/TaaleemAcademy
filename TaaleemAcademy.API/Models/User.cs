@@ -28,6 +28,11 @@ namespace TaaleemAcademy.API.Models
 
         public bool IsActive { get; set; } = true;
 
+        [StringLength(255)]
+        public string? PasswordResetToken { get; set; }
+
+        public DateTime? PasswordResetTokenExpiry { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public DateTime? UpdatedAt { get; set; }
