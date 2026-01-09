@@ -12,6 +12,7 @@ import {
 } from '../../api/taaleem';
 import { AppShell } from '../../components/AppShell';
 import { ErrorBanner } from '../../components/ErrorBanner';
+import { parseApiError } from '../../api/client';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
 
 export const EnrollmentManagementPage = () => {
@@ -26,17 +27,17 @@ export const EnrollmentManagementPage = () => {
   const [showUnenrollModal, setShowUnenrollModal] = useState(false);
   const [studentToUnenroll, setStudentToUnenroll] = useState<{ enrollmentId: number; studentName: string } | null>(null);
 
-  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
+  const { data: enrollments, isLoading: enrollmentsLoading, error: enrollmentsError } = useQuery({
     queryKey: ['enrollments'],
     queryFn: fetchEnrollments,
   });
 
-  const { data: courses, isLoading: coursesLoading } = useQuery({
+  const { data: courses, isLoading: coursesLoading, error: coursesError } = useQuery({
     queryKey: ['courses'],
     queryFn: fetchCourses,
   });
 
-  const { data: users, isLoading: usersLoading } = useQuery({
+  const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ['users'],
     queryFn: fetchUsers,
   });
@@ -104,7 +105,7 @@ export const EnrollmentManagementPage = () => {
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => {
-      setError(err.message || 'Failed to enroll student');
+      setError(parseApiError(err));
       setSuccess(null);
     },
   });
@@ -118,7 +119,7 @@ export const EnrollmentManagementPage = () => {
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => {
-      setError(err?.response?.data?.message || 'Failed to unenroll student');
+      setError(parseApiError(err));
       setSuccess(null);
     },
   });
@@ -159,6 +160,12 @@ export const EnrollmentManagementPage = () => {
   };
 
   const isLoading = enrollmentsLoading || coursesLoading || usersLoading;
+  const queryErrorMessage = useMemo(() => {
+    if (enrollmentsError) return parseApiError(enrollmentsError as any);
+    if (coursesError) return parseApiError(coursesError as any);
+    if (usersError) return parseApiError(usersError as any);
+    return null;
+  }, [enrollmentsError, coursesError, usersError]);
 
   return (
     <AppShell>
@@ -170,6 +177,7 @@ export const EnrollmentManagementPage = () => {
           </p>
         </div>
 
+        {queryErrorMessage && <ErrorBanner message={queryErrorMessage} />}
         {error && <ErrorBanner message={error} />}
         {success && (
           <div className="mb-6 rounded-lg bg-green-50 border border-green-200 p-4">

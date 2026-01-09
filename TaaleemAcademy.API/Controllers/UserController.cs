@@ -27,9 +27,9 @@ namespace TaaleemAcademy.API.Controllers
         private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
         private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
 
-        // GET: api/User - Only Admin can view all users
+        // GET: api/User - Admin and Instructor can view all users
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Instructor")]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
             try
@@ -41,6 +41,34 @@ namespace TaaleemAcademy.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error retrieving users", error = ex.Message });
+            }
+        }
+
+        // GET: api/User/by-email?email=... - Admin and Instructor can lookup users by email
+        [HttpGet("by-email")]
+        [Authorize(Roles = "Admin,Instructor")]
+        public async Task<ActionResult<UserDto>> GetUserByEmail([FromQuery] string email)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    return BadRequest(new { message = "Email is required" });
+                }
+
+                var normalized = email.Trim().ToLower();
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found with that email" });
+                }
+
+                var userDto = _mapper.Map<UserDto>(user);
+                return Ok(userDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving user by email", error = ex.Message });
             }
         }
 

@@ -24,8 +24,23 @@ namespace TaaleemAcademy.API.Controllers
         }
 
         // Helper methods
-        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
+        private int GetCurrentUserId()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out var id) ? id : 0;
+        }
+
+        private string? GetCurrentUserRole()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            return string.IsNullOrWhiteSpace(role) ? null : role.Trim();
+        }
+
+        private bool IsAdminOrInstructor()
+        {
+            var role = GetCurrentUserRole();
+            return role != null && (role.Equals("Admin", StringComparison.OrdinalIgnoreCase) || role.Equals("Instructor", StringComparison.OrdinalIgnoreCase));
+        }
 
         // GET: api/Enrollment - Admin/Instructor see all, Students see only their own
         [HttpGet]
@@ -34,12 +49,11 @@ namespace TaaleemAcademy.API.Controllers
             try
             {
                 var currentUserId = GetCurrentUserId();
-                var currentUserRole = GetCurrentUserRole();
 
                 List<Enrollment> enrollments;
 
                 // Admin and Instructor can see all enrollments
-                if (currentUserRole == "Admin" || currentUserRole == "Instructor")
+                if (IsAdminOrInstructor())
                 {
                     enrollments = await _context.Enrollments.ToListAsync();
                 }
@@ -74,9 +88,8 @@ namespace TaaleemAcademy.API.Controllers
 
                 // Check permissions
                 var currentUserId = GetCurrentUserId();
-                var currentUserRole = GetCurrentUserRole();
 
-                if (enrollment.UserId != currentUserId && currentUserRole != "Admin" && currentUserRole != "Instructor")
+                if (enrollment.UserId != currentUserId && !IsAdminOrInstructor())
                 {
                     return StatusCode(403, new { message = "You don't have permission to view this enrollment" });
                 }
@@ -105,7 +118,7 @@ namespace TaaleemAcademy.API.Controllers
                 var currentUserRole = GetCurrentUserRole();
 
                 // Students can only enroll themselves
-                if (currentUserRole == "Student" && createEnrollmentDto.UserId != currentUserId)
+                if (currentUserRole != null && currentUserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) && createEnrollmentDto.UserId != currentUserId)
                 {
                     return StatusCode(403, new { message = "You can only enroll yourself" });
                 }

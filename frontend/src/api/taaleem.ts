@@ -111,7 +111,8 @@ export const fetchEnrollments = async (): Promise<Enrollment[]> => {
 };
 
 export const createEnrollment = async (userId: number, courseId: number) => {
-  const res = await api.post('/Enrollment', { userId, courseId });
+  // Send PascalCase to satisfy strict DTO binders if configured
+  const res = await api.post('/Enrollment', { UserId: userId, CourseId: courseId });
   return res.data as Enrollment;
 };
 
@@ -120,10 +121,8 @@ export const deleteEnrollment = async (enrollmentId: number): Promise<void> => {
 };
 
 export const fetchUserByEmail = async (email: string): Promise<User> => {
-  const users = await fetchUsers();
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (!user) throw new Error('User not found with that email');
-  return user;
+  const res = await api.get<User>('/User/by-email', { params: { email } });
+  return res.data;
 };
 
 // Quizzes
@@ -222,6 +221,20 @@ export const register = async (payload: RegisterPayload): Promise<AuthResponse> 
 export const fetchAnswersByQuiz = async (quizId: number): Promise<Answer[]> => {
   const res = await api.get<Answer[]>(`/Answer/quiz/${quizId}`);
   return res.data;
+};
+
+export const createAnswer = async (payload: { questionId: number; answerText: string; isCorrect: boolean }): Promise<Answer> => {
+  const res = await api.post<Answer>('/Answer', payload);
+  return res.data;
+};
+
+export const updateAnswer = async (id: number, payload: Partial<Answer>): Promise<Answer> => {
+  const res = await api.put<Answer>(`/Answer/${id}`, { id, ...payload });
+  return res.data;
+};
+
+export const deleteAnswer = async (id: number): Promise<void> => {
+  await api.delete(`/Answer/${id}`);
 };
 
 // Fetch lessons by course

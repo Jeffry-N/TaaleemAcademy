@@ -16,7 +16,7 @@ export const QuizExperiencePage = () => {
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(1800);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -26,6 +26,14 @@ export const QuizExperiencePage = () => {
     queryFn: () => fetchQuizById(quizId),
     enabled: quizId > 0,
   });
+
+  // Initialize timer when quiz loads
+  useEffect(() => {
+    if (quiz && timeLeft === null) {
+      // Set timer based on quiz.timeLimit (in minutes) or null for unlimited
+      setTimeLeft(quiz.timeLimit ? quiz.timeLimit * 60 : null);
+    }
+  }, [quiz, timeLeft]);
 
   const { data: allQuestions, isLoading: questionsLoading } = useQuery({
     queryKey: ['questions'],
@@ -91,8 +99,8 @@ export const QuizExperiencePage = () => {
   }, [allQuestions, quiz, allAnswers]);
 
   useEffect(() => {
-    if (timeLeft > 0 && !quizSubmitted) {
-      const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    if (timeLeft !== null && timeLeft > 0 && !quizSubmitted) {
+      const timer = setTimeout(() => setTimeLeft((t) => (t !== null ? t - 1 : null)), 1000);
       return () => clearTimeout(timer);
     }
     if (timeLeft === 0 && !quizSubmitted) {
@@ -187,45 +195,60 @@ export const QuizExperiencePage = () => {
               <Stat label="Score" value={`${score.percentage}%`} accent={passed ? 'text-green-600' : 'text-red-600'} />
               <Stat label="Correct" value={`${score.correct}/${score.total}`} />
               <Stat label="Passing Score" value={`${quiz?.passingScore || 70}%`} />
-              <Stat label="Time Spent" value={`${formatTime(1800 - timeLeft)}`} />
+              <Stat label="Time Spent" value={timeLeft !== null ? formatTime((quiz.timeLimit! * 60) - timeLeft) : 'N/A'} />
             </div>
-            <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
-              <p>Review each question and compare your answers with the correct responses below.</p>
-            </div>
+            {quiz.showCorrectAnswers ? (
+              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
+                <p>Review each question and compare your answers with the correct responses below.</p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-700">
+                <p>Your quiz has been submitted successfully. Correct answers are not shown for this quiz.</p>
+              </div>
+            )}
           </div>
 
-          <div className="mx-auto mb-8 max-w-5xl rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
-            <h2 className="mb-6 text-2xl font-bold text-gray-900">Question review</h2>
-            <div className="space-y-4">
-              {questions.map((q: any) => {
-                const selectedAnswerId = selectedAnswers[q.id];
-                const selectedAnswer = q.answers?.find((a: Answer) => a.id === selectedAnswerId);
-                const isCorrect = selectedAnswer?.isCorrect;
-                const correctAnswer = q.answers?.find((a: Answer) => a.isCorrect);
-                return (
-                  <div key={q.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="text-sm font-semibold text-gray-700">Q{q.orderIndex + 1}. {q.questionText}</div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {isCorrect ? 'Correct' : 'Incorrect'}
-                      </span>
+          {quiz.showCorrectAnswers && (
+            <div className="mx-auto mb-8 max-w-5xl rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
+              <h2 className="mb-6 text-2xl font-bold text-gray-900">Question review</h2>
+              <div className="space-y-4">
+                {questions.map((q: any) => {
+                  const selectedAnswerId = selectedAnswers[q.id];
+                  const selectedAnswer = q.answers?.find((a: Answer) => a.id === selectedAnswerId);
+                  const isCorrect = selectedAnswer?.isCorrect;
+                  const correctAnswer = q.answers?.find((a: Answer) => a.isCorrect);
+                  return (
+                    <div key={q.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="text-sm font-semibold text-gray-700">Q{q.orderIndex + 1}. {q.questionText}</div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {isCorrect ? 'Correct' : 'Incorrect'}
+                        </span>
+                      </div>
+                      <div className="mt-3 text-sm text-gray-700">
+                        <div className="font-semibold text-gray-900">Your answer:</div>
+                        <div className="text-gray-700">{selectedAnswer?.answerText || 'Not answered'}</div>
+                        {!isCorrect && correctAnswer && <div className="mt-2 text-gray-600">Correct answer: {correctAnswer.answerText}</div>}
+                      </div>
                     </div>
-                    <div className="mt-3 text-sm text-gray-700">
-                      <div className="font-semibold text-gray-900">Your answer:</div>
-                      <div className="text-gray-700">{selectedAnswer?.answerText || 'Not answered'}</div>
-                      {!isCorrect && correctAnswer && <div className="mt-2 text-gray-600">Correct answer: {correctAnswer.answerText}</div>}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <button onClick={() => window.location.reload()} className="flex items-center justify-center space-x-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700">
-              <ArrowRight className="h-5 w-5" />
-              <span>Retake quiz</span>
-            </button>
+            {quiz.allowRetake && (
+              <button onClick={() => window.location.reload()} className="flex items-center justify-center space-x-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700">
+                <ArrowRight className="h-5 w-5" />
+                <span>Retake quiz</span>
+              </button>
+            )}
+            {!quiz.allowRetake && (
+              <div className="rounded-lg bg-gray-50 px-6 py-3 text-sm text-gray-600">
+                Retakes are not allowed for this quiz.
+              </div>
+            )}
             <button onClick={() => setQuizSubmitted(false)} className="flex items-center justify-center space-x-2 rounded-xl border-2 border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 hover:bg-gray-50">
               <ArrowLeft className="h-5 w-5" />
               <span>Back to questions</span>
@@ -265,7 +288,11 @@ export const QuizExperiencePage = () => {
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between text-sm text-gray-600">
               <span>Question {currentQuestion + 1} of {questions.length}</span>
-              <span>Time left: <strong>{formatTime(timeLeft)}</strong></span>
+              {timeLeft !== null ? (
+                <span>Time left: <strong className={timeLeft < 60 ? 'text-red-600' : ''}>{formatTime(timeLeft)}</strong></span>
+              ) : (
+                <span>No time limit</span>
+              )}
             </div>
 
             <div className="mb-6 h-2 w-full rounded-full bg-gray-100">
@@ -317,7 +344,11 @@ export const QuizExperiencePage = () => {
                 <p className="text-xs uppercase text-gray-500">Overview</p>
                 <p className="text-lg font-bold text-gray-900">{quiz?.title || 'Quiz'}</p>
               </div>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{formatTime(timeLeft)}</span>
+              {timeLeft !== null && (
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${timeLeft < 60 ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {formatTime(timeLeft)}
+                </span>
+              )}
             </div>
             <div className="grid grid-cols-5 gap-2 text-center">
               {questions.map((q: any, idx: number) => {
