@@ -16,6 +16,11 @@ import { QuizBuilderPage } from './pages/Instructor/QuizBuilderPage';
 import { UserManagementPage } from './pages/Admin/UserManagementPage';
 import { QuizTakePage } from './pages/QuizTakePage';
 import { AttemptsPage } from './pages/AttemptsPage';
+import { LandingPage } from './pages/LandingPage';
+import { StudentDashboardPage } from './pages/StudentDashboardPage';
+import { LessonViewerPage } from './pages/LessonViewerPage';
+import { QuizExperiencePage } from './pages/QuizExperiencePage';
+import { CertificateDetailPage } from './pages/CertificateDetailPage';
 
 const ProtectedRoute = ({ children }: { children: ReactElement }) => {
   const { user, initialized } = useAuth();
@@ -34,8 +39,19 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Student','Instructor','Admin']}>
+                <StudentDashboardPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/courses"
           element={
@@ -49,6 +65,16 @@ const App = () => {
           element={
             <ProtectedRoute>
               <CourseDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/lessons/viewer"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Student','Instructor','Admin']}>
+                <LessonViewerPage />
+              </RoleGuard>
             </ProtectedRoute>
           }
         />
@@ -73,6 +99,16 @@ const App = () => {
           }
         />
         <Route
+          path="/certificates/sample"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Student','Instructor','Admin']}>
+                <CertificateDetailPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/attempts"
           element={
             <ProtectedRoute>
@@ -88,6 +124,16 @@ const App = () => {
             <ProtectedRoute>
               <RoleGuard roles={['Student','Instructor','Admin']}>
                 <QuizTakePage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz/demo"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Student','Instructor','Admin']}>
+                <QuizExperiencePage />
               </RoleGuard>
             </ProtectedRoute>
           }
@@ -144,8 +190,7 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/courses" replace />} />
-        <Route path="*" element={<Navigate to="/courses" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

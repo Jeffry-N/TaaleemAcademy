@@ -33,6 +33,16 @@ export const login = async (payload: LoginPayload): Promise<AuthResponse> => {
   return res.data;
 };
 
+export const requestPasswordReset = async (email: string): Promise<{ message: string }> => {
+  const res = await api.post<{ message: string }>('/Auth/forgot-password', { email });
+  return res.data;
+};
+
+export const resetPassword = async (token: string, email: string, newPassword: string): Promise<{ message: string }> => {
+  const res = await api.post<{ message: string }>('/Auth/reset-password', { token, email, newPassword });
+  return res.data;
+};
+
 export const fetchCourses = async (): Promise<Course[]> => {
   const res = await api.get<Course[]>('/Course');
   return res.data;
@@ -195,5 +205,29 @@ export const register = async (payload: RegisterPayload): Promise<AuthResponse> 
 // Answers
 export const fetchAnswersByQuiz = async (quizId: number): Promise<Answer[]> => {
   const res = await api.get<Answer[]>(`/Answer/quiz/${quizId}`);
+  return res.data;
+};
+
+// Fetch lessons by course
+export const fetchLessonsByCourse = async (courseId: number): Promise<Lesson[]> => {
+  const lessons = await fetchLessons();
+  return lessons.filter(l => l.courseId === courseId).sort((a, b) => a.orderIndex - b.orderIndex);
+};
+
+// Fetch user's enrolled courses with progress
+export const fetchUserEnrolledCourses = async (userId: number): Promise<(Enrollment & { course?: Course })[]> => {
+  const enrollments = await fetchEnrollments();
+  const courses = await fetchCourses();
+  return enrollments
+    .filter(e => e.userId === userId)
+    .map(e => ({
+      ...e,
+      course: courses.find(c => c.id === e.courseId),
+    }));
+};
+
+// Fetch certificate by ID
+export const fetchCertificateById = async (id: number): Promise<Certificate> => {
+  const res = await api.get<Certificate>(`/Certificate/${id}`);
   return res.data;
 };

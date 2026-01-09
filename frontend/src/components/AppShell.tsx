@@ -4,7 +4,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const studentNav = [
-  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/' },
+  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/dashboard' },
   { id: 'courses', name: 'Courses', icon: BookOpen, to: '/courses' },
   { id: 'progress', name: 'My Progress', icon: ClipboardList, to: '/progress' },
   { id: 'attempts', name: 'My Attempts', icon: ClipboardList, to: '/attempts' },
@@ -13,7 +13,7 @@ const studentNav = [
 ];
 
 const instructorNav = [
-  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/' },
+  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/dashboard' },
   { id: 'manage-courses', name: 'Manage Courses', icon: Layers, to: '/instructor/courses' },
   { id: 'quizzes', name: 'Quiz Builder', icon: ClipboardList, to: '/instructor/quizzes' },
   { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
@@ -21,7 +21,7 @@ const instructorNav = [
 ];
 
 const adminNav = [
-  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/' },
+  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/dashboard' },
   { id: 'users', name: 'User Management', icon: Users, to: '/admin/users' },
   { id: 'courses', name: 'Courses', icon: Layers, to: '/instructor/courses' },
   { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
@@ -42,7 +42,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             <button onClick={() => setSidebarOpen((v) => !v)} className="text-gray-600 hover:text-gray-900 lg:hidden">
               {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <Link to="/courses" className="flex items-center space-x-2">
+            <Link to="/dashboard" className="flex items-center space-x-2">
               <div className="rounded-lg bg-blue-600 p-2">
                 <BookOpen className="h-6 w-6 text-white" />
               </div>

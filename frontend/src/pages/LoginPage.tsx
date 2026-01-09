@@ -3,6 +3,7 @@ import { BookOpen, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { requestPasswordReset } from '../api/taaleem';
 
 export const LoginPage = () => {
   const { user, login, isLoading, error } = useAuth();
@@ -11,6 +12,10 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -28,6 +33,81 @@ export const LoginPage = () => {
       setLocalError('Login failed. Please check your credentials.');
     }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      await requestPasswordReset(forgotEmail);
+      setForgotSuccess(true);
+    } catch (err) {
+      setLocalError('Failed to send password reset email. Please try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  if (showForgotPassword) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-blue-600">
+              <BookOpen className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">Taaleem Academy</h1>
+            <p className="mt-2 text-gray-600">Reset your password</p>
+          </div>
+
+          {forgotSuccess && (
+            <div className="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-700">
+              Password reset email has been sent. Check your inbox for the reset link.
+            </div>
+          )}
+
+          {(localError || error) && <ErrorBanner message={localError || error || ''} />}
+
+          <form onSubmit={handleForgotPassword} className="mt-6 space-y-6">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Email Address</label>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                  className="block w-full rounded-lg border border-gray-300 py-3 pl-10 pr-3 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  placeholder="you@example.com"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={forgotLoading || forgotSuccess}
+              className="w-full rounded-lg bg-blue-600 py-3 px-4 font-semibold text-white transition hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {forgotLoading ? 'Sending...' : forgotSuccess ? 'Email sent!' : 'Send reset link'}
+            </button>
+          </form>
+
+          <button
+            onClick={() => {
+              setShowForgotPassword(false);
+              setForgotSuccess(false);
+              setLocalError(null);
+            }}
+            className="mt-4 w-full rounded-lg border border-gray-300 py-3 px-4 font-semibold text-gray-700 transition hover:bg-gray-50"
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -89,7 +169,7 @@ export const LoginPage = () => {
               <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               <span>Remember me</span>
             </label>
-            <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+            <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm font-medium text-blue-600 hover:text-blue-500">
               Forgot password?
             </button>
           </div>
