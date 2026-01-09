@@ -91,9 +91,8 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // POST: api/Certificate - Only Admin or Instructor can issue certificates
+        // POST: api/Certificate - Admin/Instructor can issue to anyone. Students can issue to themselves if course is 100% completed.
         [HttpPost]
-        [Authorize(Roles = "Admin,Instructor")]
         public async Task<ActionResult<CertificateDto>> CreateCertificate(CreateCertificateDto createCertificateDto)
         {
             try
@@ -101,6 +100,44 @@ namespace TaaleemAcademy.API.Controllers
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
+                }
+
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // Allow Students to issue only for themselves after full completion
+                if (currentUserRole == "Student")
+                {
+                    if (createCertificateDto.UserId != currentUserId)
+                    {
+                        return StatusCode(403, new { message = "You can only issue certificates for yourself" });
+                    }
+
+                    // Check course completion: all lessons for the course are completed by the student
+                    var totalLessons = await _context.Lessons.CountAsync(l => l.CourseId == createCertificateDto.CourseId);
+                    if (totalLessons > 0)
+                    {
+                        var completedLessons = await _context.LessonCompletions
+                            .Join(_context.Lessons,
+                                lc => lc.LessonId,
+                                l => l.Id,
+                                (lc, l) => new { lc, l })
+                            .Where(x => x.l.CourseId == createCertificateDto.CourseId && x.lc.UserId == currentUserId)
+                            .CountAsync();
+
+                        if (completedLessons < totalLessons)
+                        {
+                            return StatusCode(403, new { message = "Course not fully completed. Finish all lessons to generate a certificate." });
+                        }
+                    }
+
+                    // Force issuer to the current user
+                    createCertificateDto.IssuedBy = currentUserId;
+                }
+                else
+                {
+                    // Admin/Instructor: issue on behalf; issuer is the current user
+                    createCertificateDto.IssuedBy = currentUserId;
                 }
 
                 // Check if certificate already exists for this user and course

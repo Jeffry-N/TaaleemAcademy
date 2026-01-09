@@ -1,11 +1,29 @@
 import { useState } from 'react';
-import { Home, BookOpen, Award, Settings, Bell, Menu, X, Search, LogOut, UserCircle } from 'lucide-react';
+import { Home, BookOpen, Award, Settings, Bell, Menu, X, Search, LogOut, UserCircle, Layers, Users, ClipboardList } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const navItems = [
+const studentNav = [
   { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/' },
-  { id: 'courses', name: 'My Courses', icon: BookOpen, to: '/courses' },
+  { id: 'courses', name: 'Courses', icon: BookOpen, to: '/courses' },
+  { id: 'progress', name: 'My Progress', icon: ClipboardList, to: '/progress' },
+  { id: 'attempts', name: 'My Attempts', icon: ClipboardList, to: '/attempts' },
+  { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
+  { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
+];
+
+const instructorNav = [
+  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/' },
+  { id: 'manage-courses', name: 'Manage Courses', icon: Layers, to: '/instructor/courses' },
+  { id: 'quizzes', name: 'Quiz Builder', icon: ClipboardList, to: '/instructor/quizzes' },
+  { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
+  { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
+];
+
+const adminNav = [
+  { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/' },
+  { id: 'users', name: 'User Management', icon: Users, to: '/admin/users' },
+  { id: 'courses', name: 'Courses', icon: Layers, to: '/instructor/courses' },
   { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
   { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
 ];
@@ -13,6 +31,8 @@ const navItems = [
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+  const role = user?.role ?? 'Student';
+  const navItems = role === 'Admin' ? adminNav : role === 'Instructor' ? instructorNav : studentNav;
 
   return (
     <div className="min-h-screen bg-gray-50">

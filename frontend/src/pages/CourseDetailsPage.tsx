@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, CheckCircle, Play, Layers, ArrowLeft, Sparkles } from 'lucide-react';
@@ -12,6 +12,9 @@ import {
   fetchLessonCompletions,
   fetchLessons,
   markLessonComplete,
+  fetchQuizzes,
+  fetchQuizAttempts,
+  createCertificate,
 } from '../api/taaleem';
 import { parseApiError } from '../api/client';
 import type { Lesson } from '../types/api';
@@ -55,6 +58,26 @@ export const CourseDetailsPage = () => {
     queryFn: fetchEnrollments,
   });
 
+  const { data: quizzes } = useQuery({ queryKey: ['quizzes'], queryFn: fetchQuizzes });
+  const { data: quizAttempts } = useQuery({ queryKey: ['quizAttempts'], queryFn: fetchQuizAttempts });
+  const issueCertMutation = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error('You must be logged in.');
+      // Only Admin/Instructor allowed by API
+      return createCertificate({
+        courseId,
+        userId: user.userId,
+        certificateCode: `CERT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        downloadUrl: '',
+        issuedBy: user.userId,
+      });
+    },
+    onSuccess: () => setFeedback('Certificate issued'),
+    onError: (err) => setFeedback(parseApiError(err)),
+  });
+
+  const [autoIssued, setAutoIssued] = useState(false);
+
   const enrollMutation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('You must be logged in to enroll.');
@@ -91,8 +114,8 @@ export const CourseDetailsPage = () => {
   }, [courseLessons, completedLessonIds]);
 
   const isEnrolled = enrollments?.some((e) => e.courseId === courseId) ?? false;
-
-  const firstIncomplete = courseLessons.find((l) => !completedLessonIds.has(l.id));
+  const courseQuizzes = useMemo(() => (quizzes ?? []).filter(q => q.courseId === courseId), [quizzes, courseId]);
+  const myQuizAttempts = useMemo(() => (quizAttempts ?? []).filter(a => courseQuizzes.some(q => q.id === a.quizId)), [quizAttempts, courseQuizzes]);
 
   const loading = isCourseLoading || lessonsLoading || completionsLoading;
   const errorMsg = courseError
@@ -102,6 +125,17 @@ export const CourseDetailsPage = () => {
       : completionsError
         ? parseApiError(completionsError)
         : null;
+
+  useEffect(() => {
+    if (loading) return;
+    if (progress !== 100) return;
+    if (!user) return;
+    if (issueCertMutation.isPending || autoIssued) return;
+    issueCertMutation.mutate();
+    setAutoIssued(true);
+  }, [loading, progress, user, issueCertMutation, autoIssued]);
+
+  const firstIncomplete = courseLessons.find((l) => !completedLessonIds.has(l.id));
 
   const handleStart = () => {
     const targetId = firstIncomplete?.id ?? courseLessons[0]?.id;
@@ -230,9 +264,55 @@ export const CourseDetailsPage = () => {
           </div>
         )}
 
+        {!loading && courseQuizzes.length > 0 && (
+          <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Quizzes</h2>
+            </div>
+            <div className="space-y-3">
+              {courseQuizzes.map(q => {
+                const attemptsForQuiz = myQuizAttempts.filter(a => a.quizId === q.id);
+                const last = attemptsForQuiz.sort((a,b)=> new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0];
+                return (
+                  <div key={q.id} className="flex flex-col justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 shadow-sm lg:flex-row lg:items-center">
+                    <div>
+                      <div className="text-lg font-semibold text-gray-900">{q.title}</div>
+                      <div className="text-sm text-gray-600">Passing {q.passingScore}%{q.timeLimit ? ` • ${q.timeLimit} min` : ''}</div>
+                      {last && (
+                        <div className="text-sm text-gray-500">Last attempt: {new Date(last.startedAt).toLocaleString()} • {last.isPassed ? 'Passed' : 'Not passed'} • Score: {Math.round(last.score)}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={()=>navigate(`/quiz/${q.id}/take`)} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">{last ? 'Retake' : 'Take quiz'}</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {!loading && courseLessons.length === 0 && !errorMsg && (
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-600">
             No lessons found for this course yet.
+          </div>
+        )}
+
+        {!loading && progress === 100 && user && (
+          <div className="rounded-2xl border border-green-100 bg-green-50 p-6 text-green-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold">Ready to issue a certificate</div>
+                <div className="text-sm">This course is 100% complete.</div>
+              </div>
+              <button
+                onClick={() => issueCertMutation.mutate()}
+                disabled={issueCertMutation.isPending}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-70"
+              >
+                {issueCertMutation.isPending ? 'Issuing...' : 'Generate Certificate'}
+              </button>
+            </div>
           </div>
         )}
       </div>

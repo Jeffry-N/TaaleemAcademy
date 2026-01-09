@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
 
@@ -113,9 +113,9 @@ export const LoginPage = () => {
         </div>
 
         <div className="mt-6 text-center">
-          <button type="button" className="font-medium text-blue-600 hover:text-blue-500">
+          <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
             Create a new account
-          </button>
+          </Link>
         </div>
       </div>
 

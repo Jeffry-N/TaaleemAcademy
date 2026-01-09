@@ -39,6 +39,49 @@ namespace TaaleemAcademy.API.Controllers
             return Ok(_mapper.Map<AnswerDto>(item));
         }
 
+        // GET: api/Answer/quiz/5 - return answers for all questions in a quiz
+        // Admin/Instructor: always allowed. Students: must be enrolled in the quiz's course; IsCorrect hidden for students.
+        [HttpGet("quiz/{quizId}")]
+        public async Task<ActionResult<IEnumerable<AnswerDto>>> GetByQuiz(int quizId)
+        {
+            var quiz = await _context.Quizzes.FindAsync(quizId);
+            if (quiz == null) return NotFound(new { message = "Quiz not found" });
+
+            var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+            if (currentUserRole != "Admin" && currentUserRole != "Instructor")
+            {
+                // Students must be enrolled in the course
+                var isEnrolled = await _context.Enrollments.AnyAsync(e => e.CourseId == quiz.CourseId && e.UserId == currentUserId);
+                if (!isEnrolled)
+                {
+                    return StatusCode(403, new { message = "You must be enrolled in this course to view quiz answers." });
+                }
+            }
+
+            // Answers joined via Questions -> Answers
+            var answers = await _context.Answers
+                .Join(_context.Questions,
+                    a => a.QuestionId,
+                    q => q.Id,
+                    (a, q) => new { a, q })
+                .Where(x => x.q.QuizId == quizId)
+                .OrderBy(x => x.q.Id)
+                .ThenBy(x => x.a.OrderIndex)
+                .Select(x => new AnswerDto
+                {
+                    Id = x.a.Id,
+                    QuestionId = x.a.QuestionId,
+                    AnswerText = x.a.AnswerText,
+                    IsCorrect = (currentUserRole == "Admin" || currentUserRole == "Instructor") ? x.a.IsCorrect : false,
+                    OrderIndex = x.a.OrderIndex,
+                })
+                .ToListAsync();
+
+            return Ok(answers);
+        }
+
         // POST: api/Answer - Students can submit answers
         [HttpPost]
         public async Task<ActionResult<AnswerDto>> Create(CreateAnswerDto dto)
