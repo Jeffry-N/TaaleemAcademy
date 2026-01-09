@@ -1,62 +1,51 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
+import { Spinner } from '../components/Spinner';
+import { ErrorBanner } from '../components/ErrorBanner';
+import { fetchQuizById, fetchQuestions, fetchAnswersByQuiz } from '../api/taaleem';
+import type { Question, Answer } from '../types/api';
 import { ArrowLeft, ArrowRight, Bell, BookOpen, CheckCircle, Menu, Search, Settings, X } from 'lucide-react';
 
 export const QuizExperiencePage = () => {
+  const [searchParams] = useSearchParams();
+  const quizId = parseInt(searchParams.get('id') || '0', 10);
+
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number | number[]>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState(1800);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const quiz = {
-    title: 'React Fundamentals Quiz',
-    course: 'Complete React.js Masterclass 2024',
-    totalQuestions: 10,
-    passingScore: 70,
-    duration: '30 minutes',
-  };
+  const { data: quiz, isLoading: quizLoading } = useQuery({
+    queryKey: ['quiz', quizId],
+    queryFn: () => fetchQuizById(quizId),
+    enabled: quizId > 0,
+  });
 
-  const questions = useMemo(
-    () => [
-      {
-        id: 1,
-        question: 'What is React?',
-        options: [
-          'A JavaScript library for building user interfaces',
-          'A programming language',
-          'A database management system',
-          'A CSS framework',
-        ],
-        correctAnswer: 0,
-      },
-      {
-        id: 2,
-        question: 'What does JSX stand for?',
-        options: ['JavaScript XML', 'Java Syntax Extension', 'JavaScript Extension', 'JSON XML'],
-        correctAnswer: 0,
-      },
-      {
-        id: 3,
-        question: 'Which hook is used for managing state in functional components?',
-        options: ['useEffect', 'useState', 'useContext', 'useReducer'],
-        correctAnswer: 1,
-      },
-      {
-        id: 4,
-        question: 'What is the purpose of useEffect hook?',
-        options: ['To manage state', 'To perform side effects', 'To create context', 'To optimize rendering'],
-        correctAnswer: 1,
-      },
-      {
-        id: 5,
-        question: 'How do you pass data from parent to child component?',
-        options: ['Using state', 'Using context', 'Using props', 'Using refs'],
-        correctAnswer: 2,
-      },
-    ],
-    [],
-  );
+  const { data: allQuestions, isLoading: questionsLoading } = useQuery({
+    queryKey: ['questions'],
+    queryFn: fetchQuestions,
+  });
+
+  const { data: allAnswers, isLoading: answersLoading } = useQuery({
+    queryKey: ['answers', quizId],
+    queryFn: () => fetchAnswersByQuiz(quizId),
+    enabled: quizId > 0,
+  });
+
+  // Filter questions for this quiz and attach their answers
+  const questions = useMemo(() => {
+    if (!allQuestions || !quiz || !allAnswers) return [];
+    return allQuestions
+      .filter((q: Question) => q.quizId === quiz.id)
+      .sort((a: Question, b: Question) => a.orderIndex - b.orderIndex)
+      .map((q: Question) => ({
+        ...q,
+        answers: allAnswers.filter((a: Answer) => a.questionId === q.id).sort((a: Answer, b: Answer) => a.orderIndex - b.orderIndex),
+      }));
+  }, [allQuestions, quiz, allAnswers]);
 
   useEffect(() => {
     if (timeLeft > 0 && !quizSubmitted) {
@@ -96,15 +85,39 @@ export const QuizExperiencePage = () => {
 
   const calculateScore = () => {
     let correct = 0;
-    questions.forEach((q) => {
-      if (selectedAnswers[q.id] === q.correctAnswer) correct++;
+    questions.forEach((q: any) => {
+      const selectedAnswerId = selectedAnswers[q.id];
+      if (selectedAnswerId !== undefined) {
+        const selectedAnswer = q.answers?.find((a: Answer) => a.id === selectedAnswerId);
+        if (selectedAnswer?.isCorrect) correct++;
+      }
     });
     return {
       correct,
       total: questions.length,
-      percentage: Math.round((correct / questions.length) * 100),
+      percentage: questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0,
     };
   };
+
+  const isLoading = quizLoading || questionsLoading || answersLoading;
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[80vh] items-center justify-center">
+          <Spinner />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!quiz || questions.length === 0) {
+    return (
+      <AppShell>
+        <ErrorBanner message="Quiz not found or has no questions" />
+      </AppShell>
+    );
+  }
 
   const currentQ = questions[currentQuestion];
   const progress = ((currentQuestion + 1) / questions.length) * 100;
@@ -122,15 +135,14 @@ export const QuizExperiencePage = () => {
             ) : (
               <div className="mb-2 inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">Needs improvement</div>
             )}
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">{quiz.title}</h1>
-            <p className="text-gray-600 text-lg">{quiz.course}</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">{quiz?.title || 'Quiz'}</h1>
           </div>
 
           <div className="mx-auto mb-8 max-w-5xl rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
             <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
               <Stat label="Score" value={`${score.percentage}%`} accent={passed ? 'text-green-600' : 'text-red-600'} />
               <Stat label="Correct" value={`${score.correct}/${score.total}`} />
-              <Stat label="Passing Score" value={`${quiz.passingScore}%`} />
+              <Stat label="Passing Score" value={`${quiz?.passingScore || 70}%`} />
               <Stat label="Time Spent" value={`${formatTime(1800 - timeLeft)}`} />
             </div>
             <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
@@ -141,21 +153,23 @@ export const QuizExperiencePage = () => {
           <div className="mx-auto mb-8 max-w-5xl rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
             <h2 className="mb-6 text-2xl font-bold text-gray-900">Question review</h2>
             <div className="space-y-4">
-              {questions.map((q) => {
-                const userAnswerIdx = selectedAnswers[q.id] as number | undefined;
-                const isCorrect = userAnswerIdx === q.correctAnswer;
+              {questions.map((q: any) => {
+                const selectedAnswerId = selectedAnswers[q.id];
+                const selectedAnswer = q.answers?.find((a: Answer) => a.id === selectedAnswerId);
+                const isCorrect = selectedAnswer?.isCorrect;
+                const correctAnswer = q.answers?.find((a: Answer) => a.isCorrect);
                 return (
                   <div key={q.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                     <div className="flex items-start justify-between">
-                      <div className="text-sm font-semibold text-gray-700">Q{q.id}. {q.question}</div>
+                      <div className="text-sm font-semibold text-gray-700">Q{q.orderIndex + 1}. {q.questionText}</div>
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {isCorrect ? 'Correct' : 'Incorrect'}
                       </span>
                     </div>
                     <div className="mt-3 text-sm text-gray-700">
                       <div className="font-semibold text-gray-900">Your answer:</div>
-                      <div className="text-gray-700">{userAnswerIdx !== undefined ? q.options[userAnswerIdx] : 'Not answered'}</div>
-                      <div className="mt-2 text-gray-600">Correct answer: {q.options[q.correctAnswer]}</div>
+                      <div className="text-gray-700">{selectedAnswer?.answerText || 'Not answered'}</div>
+                      {!isCorrect && correctAnswer && <div className="mt-2 text-gray-600">Correct answer: {correctAnswer.answerText}</div>}
                     </div>
                   </div>
                 );
@@ -192,7 +206,7 @@ export const QuizExperiencePage = () => {
               </div>
               <div>
                 <div className="text-xs uppercase text-gray-500">Quiz</div>
-                <div className="text-lg font-bold text-gray-900">{quiz.title}</div>
+                <div className="text-lg font-bold text-gray-900">{quiz?.title || 'Quiz'}</div>
               </div>
             </div>
           </div>
@@ -214,19 +228,19 @@ export const QuizExperiencePage = () => {
               <div className="h-2 rounded-full bg-blue-600" style={{ width: `${progress}%` }} />
             </div>
 
-            <div className="mb-4 text-xl font-bold text-gray-900">{currentQ.question}</div>
+            <div className="mb-4 text-xl font-bold text-gray-900">{currentQ?.questionText}</div>
             <div className="space-y-3">
-              {currentQ.options.map((opt, idx) => {
-                const selected = selectedAnswers[currentQ.id] === idx;
+              {currentQ?.answers?.map((answer: Answer) => {
+                const selected = selectedAnswers[currentQ.id] === answer.id;
                 return (
                   <button
-                    key={opt}
-                    onClick={() => handleAnswerSelect(currentQ.id, idx)}
+                    key={answer.id}
+                    onClick={() => handleAnswerSelect(currentQ.id, answer.id)}
                     className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
                       selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-200'
                     }`}
                   >
-                    <span className="text-gray-800">{opt}</span>
+                    <span className="text-gray-800">{answer.answerText}</span>
                     {selected && <CheckCircle className="h-5 w-5 text-blue-600" />}
                   </button>
                 );
@@ -251,13 +265,12 @@ export const QuizExperiencePage = () => {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-gray-500">Overview</p>
-                <p className="text-lg font-bold text-gray-900">{quiz.title}</p>
-                <p className="text-sm text-gray-500">{quiz.course}</p>
+                <p className="text-lg font-bold text-gray-900">{quiz?.title || 'Quiz'}</p>
               </div>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{quiz.duration}</span>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{formatTime(timeLeft)}</span>
             </div>
             <div className="grid grid-cols-5 gap-2 text-center">
-              {questions.map((q, idx) => {
+              {questions.map((q: any, idx: number) => {
                 const answered = selectedAnswers[q.id] !== undefined;
                 return (
                   <button
@@ -275,11 +288,11 @@ export const QuizExperiencePage = () => {
             <div className="mt-4 space-y-2 text-sm text-gray-600">
               <div className="flex items-center justify-between">
                 <span>Passing score</span>
-                <span className="font-semibold text-gray-900">{quiz.passingScore}%</span>
+                <span className="font-semibold text-gray-900">{quiz?.passingScore || 70}%</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Questions</span>
-                <span className="font-semibold text-gray-900">{quiz.totalQuestions}</span>
+                <span className="font-semibold text-gray-900">{questions.length}</span>
               </div>
             </div>
           </aside>

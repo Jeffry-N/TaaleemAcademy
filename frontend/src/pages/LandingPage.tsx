@@ -1,54 +1,84 @@
+import { useQuery } from '@tanstack/react-query';
 import { BookOpen, Award, TrendingUp, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { fetchCategories, fetchCourses, fetchUsers, fetchCertificates, fetchQuizAttempts } from '../api/taaleem';
+import { Spinner } from '../components/Spinner';
+
+const categoryIconMap: Record<string, string> = {
+  'Web Development': '💻',
+  'Data Science': '📊',
+  'Mobile Development': '📱',
+  'UI/UX Design': '🎨',
+  'Backend Development': '⚙️',
+  'DevOps': '🚀',
+  'Programming': '💻',
+  'Design': '🎨',
+  'Business': '📈',
+  'default': '📚',
+};
+
+const categoryColorMap: Record<string, string> = {
+  'Web Development': 'bg-blue-100 text-blue-600',
+  'Data Science': 'bg-purple-100 text-purple-600',
+  'Mobile Development': 'bg-green-100 text-green-600',
+  'UI/UX Design': 'bg-pink-100 text-pink-600',
+  'Backend Development': 'bg-orange-100 text-orange-600',
+  'DevOps': 'bg-indigo-100 text-indigo-600',
+  'Programming': 'bg-blue-100 text-blue-600',
+  'Design': 'bg-pink-100 text-pink-600',
+  'Business': 'bg-yellow-100 text-yellow-600',
+  'default': 'bg-gray-100 text-gray-600',
+};
 
 export const LandingPage = () => {
-  const categories = [
-    { name: 'Web Development', icon: '💻', courses: 45, color: 'bg-blue-100 text-blue-600' },
-    { name: 'Data Science', icon: '📊', courses: 32, color: 'bg-purple-100 text-purple-600' },
-    { name: 'Mobile Development', icon: '📱', courses: 28, color: 'bg-green-100 text-green-600' },
-    { name: 'UI/UX Design', icon: '🎨', courses: 24, color: 'bg-pink-100 text-pink-600' },
-    { name: 'Backend Development', icon: '⚙️', courses: 38, color: 'bg-orange-100 text-orange-600' },
-    { name: 'DevOps', icon: '🚀', courses: 19, color: 'bg-indigo-100 text-indigo-600' },
-  ];
+  const { data: categories, isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
+  });
 
-  const featuredCourses = [
-    {
-      id: 1,
-      title: 'Complete React.js Masterclass',
-      instructor: 'Sarah Johnson',
-      rating: 4.8,
-      students: 12453,
-      thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
-      category: 'Web Development',
-      price: 'Free',
-    },
-    {
-      id: 2,
-      title: 'Python for Data Science',
-      instructor: 'Dr. Emily White',
-      rating: 4.9,
-      students: 15678,
-      thumbnail: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=400',
-      category: 'Data Science',
-      price: 'Free',
-    },
-    {
-      id: 3,
-      title: 'UI/UX Design Fundamentals',
-      instructor: 'Jessica Lee',
-      rating: 4.7,
-      students: 9876,
-      thumbnail: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400',
-      category: 'Design',
-      price: 'Free',
-    },
-  ];
+  const { data: courses, isLoading: coursesLoading } = useQuery({
+    queryKey: ['courses'],
+    queryFn: fetchCourses,
+  });
 
+  const { data: users, isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  });
+
+  const { data: certificates, isLoading: certificatesLoading } = useQuery({
+    queryKey: ['certificates'],
+    queryFn: fetchCertificates,
+  });
+
+  const { data: quizAttempts, isLoading: attemptsLoading } = useQuery({
+    queryKey: ['quizAttempts'],
+    queryFn: fetchQuizAttempts,
+  });
+
+  // Get featured courses (published ones, limited to first 3)
+  const featuredCourses = courses?.filter(c => c.isPublished).slice(0, 3) || [];
+
+  // Calculate course counts by category
+  const categoriesWithCounts = categories?.map(cat => ({
+    ...cat,
+    courseCount: courses?.filter(c => c.categoryId === cat.id && c.isPublished).length || 0,
+    icon: categoryIconMap[cat.name] || categoryIconMap.default,
+    color: categoryColorMap[cat.name] || categoryColorMap.default,
+  })) || [];
+
+  // Calculate success rate from quiz attempts
+  const passedAttempts = quizAttempts?.filter(qa => qa.isPassed).length || 0;
+  const totalAttempts = quizAttempts?.length || 0;
+  const successRate = totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0;
+
+  // Dynamic stats based on actual data
+  const studentCount = users?.filter(u => u.role === 'Student').length || 0;
   const stats = [
-    { label: 'Active Students', value: '50,000+', icon: Users },
-    { label: 'Total Courses', value: '200+', icon: BookOpen },
-    { label: 'Certificates Issued', value: '30,000+', icon: Award },
-    { label: 'Success Rate', value: '95%', icon: TrendingUp },
+    { label: 'Active Students', value: studentCount.toString(), icon: Users },
+    { label: 'Total Courses', value: (courses?.filter(c => c.isPublished).length || 0).toString(), icon: BookOpen },
+    { label: 'Certificates Issued', value: (certificates?.length || 0).toString(), icon: Award },
+    { label: 'Success Rate', value: `${successRate}%`, icon: TrendingUp },
   ];
 
   const features = [
@@ -59,6 +89,8 @@ export const LandingPage = () => {
     'Mobile-friendly platform',
     'Community support',
   ];
+
+  const isLoading = categoriesLoading || coursesLoading || usersLoading || certificatesLoading || attemptsLoading;
 
   return (
     <div className="min-h-screen bg-white">
@@ -131,17 +163,21 @@ export const LandingPage = () => {
             <p className="text-xl text-gray-600">Explore courses across different domains</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => (
-              <div key={category.name} className="flex items-center space-x-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${category.color}`}>{category.icon}</div>
-                <div>
-                  <div className="text-lg font-semibold text-gray-900">{category.name}</div>
-                  <div className="text-sm text-gray-500">{category.courses} courses</div>
+          {isLoading ? (
+            <div className="flex justify-center"><Spinner /></div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {categoriesWithCounts.map((category) => (
+                <div key={category.id} className="flex items-center space-x-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${category.color}`}>{category.icon}</div>
+                  <div>
+                    <div className="text-lg font-semibold text-gray-900">{category.name}</div>
+                    <div className="text-sm text-gray-500">{category.courseCount} courses</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -152,23 +188,33 @@ export const LandingPage = () => {
             <p className="text-xl text-gray-600">Start learning with our most popular courses</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {featuredCourses.map((course) => (
-              <div key={course.id} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                <img src={course.thumbnail} alt={course.title} className="h-48 w-full object-cover" />
-                <div className="p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{course.category}</p>
-                  <h3 className="mt-1 text-xl font-bold text-gray-900">{course.title}</h3>
-                  <p className="text-sm text-gray-600">{course.instructor}</p>
-                  <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-                    <span className="font-semibold text-amber-500">★ {course.rating}</span>
-                    <span>{course.students.toLocaleString()} students</span>
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">{course.price}</span>
+          {isLoading ? (
+            <div className="flex justify-center"><Spinner /></div>
+          ) : featuredCourses.length === 0 ? (
+            <div className="text-center text-gray-500">No courses available yet</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {featuredCourses.map((course) => (
+                <Link key={course.id} to={`/courses?id=${course.id}`} className="block overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-lg transition-shadow">
+                  <img
+                    src={course.thumbnailUrl || 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400'}
+                    alt={course.title}
+                    className="h-48 w-full object-cover"
+                  />
+                  <div className="p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                      {categories?.find(c => c.id === course.categoryId)?.name || 'Course'}
+                    </p>
+                    <h3 className="mt-1 text-xl font-bold text-gray-900">{course.title}</h3>
+                    <p className="text-sm text-gray-600">Difficulty: {course.difficulty || 'Beginner'}</p>
+                    <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">Free</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
 
           <div className="mt-12 text-center">
             <Link to="/courses" className="rounded-lg bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow hover:bg-blue-700">View all courses</Link>
