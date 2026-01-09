@@ -23,6 +23,7 @@ const instructorNav = [
 const adminNav = [
   { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/dashboard' },
   { id: 'users', name: 'User Management', icon: Users, to: '/admin/users' },
+  { id: 'categories', name: 'Categories', icon: Layers, to: '/admin/categories' },
   { id: 'courses', name: 'Courses', icon: Layers, to: '/instructor/courses' },
   { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
   { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },

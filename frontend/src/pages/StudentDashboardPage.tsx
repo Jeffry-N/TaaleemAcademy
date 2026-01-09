@@ -128,7 +128,6 @@ export const StudentDashboardPage = () => {
                     <div className="p-4 space-y-2">
                       <p className="text-xs font-semibold uppercase text-blue-600">{ec.category?.name}</p>
                       <h3 className="text-lg font-bold text-gray-900">{ec.course?.title}</h3>
-                      <p className="text-sm text-gray-500">Instructor {ec.course?.createdBy}</p>
                       <p className="text-sm text-gray-500">Last lesson: {ec.lastLesson}</p>
                       <div className="h-2 rounded-full bg-gray-100">
                         <div className="h-2 rounded-full bg-blue-600" style={{ width: `${ec.completionPercentage}%` }} />

@@ -104,7 +104,19 @@ namespace TaaleemAcademy.API.Controllers
                     return NotFound(new { message = $"User with ID {id} not found" });
                 }
 
-                _mapper.Map(updateUserDto, existingUser);
+                // Update only the allowed fields
+                existingUser.FullName = updateUserDto.FullName;
+                existingUser.Email = updateUserDto.Email;
+                existingUser.Role = updateUserDto.Role;
+                existingUser.IsActive = updateUserDto.IsActive;
+                existingUser.UpdatedAt = DateTime.Now;
+
+                // Only update password if provided
+                if (!string.IsNullOrEmpty(updateUserDto.Password))
+                {
+                    existingUser.HashedPassword = BCrypt.Net.BCrypt.HashPassword(updateUserDto.Password);
+                }
+
                 _context.Entry(existingUser).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
 

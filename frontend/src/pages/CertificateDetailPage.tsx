@@ -57,7 +57,7 @@ export const CertificateDetailPage = () => {
               <div className="mt-6 grid grid-cols-1 gap-4 text-left md:grid-cols-3">
                 <div>
                   <p className="text-xs uppercase text-gray-500">Instructor</p>
-                  <p className="text-lg font-semibold">Instructor {course?.createdBy}</p>
+                  <p className="text-lg font-semibold">{course?.title}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-gray-500">Completion Date</p>

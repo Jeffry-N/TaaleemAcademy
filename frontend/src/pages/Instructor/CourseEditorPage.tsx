@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { AppShell } from '../../components/AppShell';
-import { createCourse, fetchCategories, fetchCourseById, updateCourse, fetchLessons, createLesson, updateLesson, deleteLesson } from '../../api/taaleem';
+import { createCourse, fetchCategories, fetchCourseById, updateCourse, fetchLessons, createLesson, updateLesson, deleteLesson, fetchUsers } from '../../api/taaleem';
 import { useAuth } from '../../context/AuthContext';
 import { Spinner } from '../../components/Spinner';
 import { ErrorBanner } from '../../components/ErrorBanner';
@@ -14,6 +14,7 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
   const courseId = params.id ? parseInt(params.id, 10) : undefined;
 
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: fetchCategories });
+  const { data: users } = useQuery({ queryKey: ['users'], queryFn: fetchUsers });
   const { data: course, isLoading, error } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => fetchCourseById(courseId!),
@@ -34,7 +35,9 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
     thumbnailUrl: '',
     estimatedDuration: 0,
     isPublished: false,
+    createdBy: 0,
   });
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (course && mode === 'edit') {
@@ -47,17 +50,35 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
         thumbnailUrl: course.thumbnailUrl ?? '',
         estimatedDuration: course.estimatedDuration ?? 0,
         isPublished: course.isPublished,
+        createdBy: course.createdBy ?? 0,
       });
+    } else if (mode === 'create') {
+      // For instructors, auto-set createdBy to their ID
+      // For admins, they can select from dropdown
+      if (user?.role === 'Instructor') {
+        setForm(f => ({ ...f, createdBy: user.userId }));
+      }
     }
-  }, [course, mode]);
+  }, [course, mode, user]);
 
   const createMut = useMutation({
-    mutationFn: () => createCourse({ ...form, createdBy: user!.userId }),
+    mutationFn: () => createCourse({ ...form, createdBy: form.createdBy || user!.userId }),
     onSuccess: (c) => nav(`/instructor/courses/${c.id}/edit`),
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || 'Failed to create course';
+      setSubmitError(msg);
+    },
   });
   const updateMut = useMutation({
-    mutationFn: () => updateCourse(courseId!, { id: courseId!, createdBy: user!.userId, ...form }),
+    mutationFn: () => {
+      const { createdBy: formCreatedBy, ...formWithoutCreatedBy } = form;
+      return updateCourse(courseId!, { id: courseId!, createdBy: form.createdBy || user!.userId, ...formWithoutCreatedBy });
+    },
     onSuccess: () => nav('/instructor/courses'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || 'Failed to update course';
+      setSubmitError(msg);
+    },
   });
 
   const createLessonMut = useMutation({
@@ -76,6 +97,7 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     if (mode === 'create') createMut.mutate();
     else updateMut.mutate();
   };
@@ -87,6 +109,13 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
     <AppShell>
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-6 text-2xl font-bold text-gray-900">{mode === 'create' ? 'Create Course' : 'Edit Course'}</h1>
+        
+        {submitError && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-red-700">
+            {submitError}
+          </div>
+        )}
+        
         <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
           <div>
             <label className="mb-1 block text-sm font-medium">Title</label>
@@ -111,6 +140,32 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
               </select>
             </div>
             <div>
+              <label className="mb-1 block text-sm font-medium">
+                {user?.role === 'Admin' ? 'Instructor (Admin Only)' : 'Instructor'}
+              </label>
+              {user?.role === 'Admin' ? (
+                <select 
+                  className="w-full rounded border border-gray-300 p-2" 
+                  value={form.createdBy} 
+                  onChange={e=>setForm(f=>({...f,createdBy:parseInt(e.target.value,10)}))}
+                  required
+                >
+                  <option value={0}>Select instructor</option>
+                  {(users ?? [])
+                    .filter(u => u.role === 'Instructor')
+                    .map(u => (
+                      <option key={u.id} value={u.id}>{u.email}</option>
+                    ))}
+                </select>
+              ) : (
+                <div className="w-full rounded border border-gray-300 bg-gray-100 p-2 text-gray-700">
+                  {user?.email ?? 'You (Instructor)'}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
               <label className="mb-1 block text-sm font-medium">Difficulty</label>
               <select className="w-full rounded border border-gray-300 p-2" value={form.difficulty} onChange={e=>setForm(f=>({...f,difficulty:e.target.value}))}>
                 <option>Beginner</option>
@@ -118,16 +173,14 @@ export const CourseEditorPage = ({ mode }: { mode: 'create' | 'edit' }) => {
                 <option>Advanced</option>
               </select>
             </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Thumbnail URL</label>
               <input className="w-full rounded border border-gray-300 p-2" value={form.thumbnailUrl} onChange={e=>setForm(f=>({...f,thumbnailUrl:e.target.value}))} />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Estimated Duration (min)</label>
-              <input type="number" className="w-full rounded border border-gray-300 p-2" value={form.estimatedDuration} onChange={e=>setForm(f=>({...f,estimatedDuration:parseInt(e.target.value||'0',10)}))} />
-            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Estimated Duration (min)</label>
+            <input type="number" className="w-full rounded border border-gray-300 p-2" value={form.estimatedDuration} onChange={e=>setForm(f=>({...f,estimatedDuration:parseInt(e.target.value||'0',10)}))} />
           </div>
           <div className="flex items-center gap-3">
             <input id="publish" type="checkbox" checked={form.isPublished} onChange={e=>setForm(f=>({...f,isPublished:e.target.checked}))} />

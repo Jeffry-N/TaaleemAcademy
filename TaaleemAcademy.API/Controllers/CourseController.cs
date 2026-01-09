@@ -131,7 +131,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // PUT: api/Course/5 - Instructor or Admin
+        // PUT: api/Course/5 - Instructor (only their own) or Admin
         [HttpPut("{id}")]
         [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> UpdateCourse(int id, UpdateCourseDto updateCourseDto)
@@ -152,6 +152,36 @@ namespace TaaleemAcademy.API.Controllers
                 if (existingCourse == null)
                 {
                     return NotFound(new { message = $"Course with ID {id} not found" });
+                }
+
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
+                // STRICT permission check: Instructors can ONLY edit their own courses
+                if (currentUserRole == "Instructor")
+                {
+                    if (existingCourse.CreatedBy != currentUserId)
+                    {
+                        return StatusCode(403, new { message = "You can only edit courses you created. This course was created by another instructor." });
+                    }
+                    
+                    // Instructors cannot change the instructor assignment
+                    if (updateCourseDto.CreatedBy != existingCourse.CreatedBy)
+                    {
+                        return StatusCode(403, new { message = "You cannot change the course instructor assignment" });
+                    }
+                }
+                else if (currentUserRole == "Admin")
+                {
+                    // Admins can edit any course, but if changing instructor, validate it's a real instructor
+                    if (updateCourseDto.CreatedBy != existingCourse.CreatedBy)
+                    {
+                        var newInstructor = await _context.Users.FirstOrDefaultAsync(u => u.Id == updateCourseDto.CreatedBy && u.Role == "Instructor");
+                        if (newInstructor == null)
+                        {
+                            return BadRequest(new { message = $"User with ID {updateCourseDto.CreatedBy} is not a valid Instructor" });
+                        }
+                    }
                 }
 
                 _mapper.Map(updateCourseDto, existingCourse);

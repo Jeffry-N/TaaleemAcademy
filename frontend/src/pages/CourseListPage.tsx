@@ -5,7 +5,7 @@ import { BookOpen, Clock, User, Star, Sparkles } from 'lucide-react';
 import { AppShell } from '../components/AppShell';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { createEnrollment, fetchCategories, fetchCourses } from '../api/taaleem';
+import { createEnrollment, fetchCategories, fetchCourses, fetchEnrollments } from '../api/taaleem';
 import type { Course } from '../types/api';
 import { parseApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +40,11 @@ export const CourseListPage = () => {
     isLoading: isCoursesLoading,
     error: coursesError,
   } = useQuery({ queryKey: ['courses'], queryFn: fetchCourses });
+
+  const {
+    data: enrollments,
+    isLoading: isEnrollmentsLoading,
+  } = useQuery({ queryKey: ['enrollments'], queryFn: fetchEnrollments });
 
   const enrollmentMutation = useMutation({
     mutationFn: ({ courseId }: { courseId: number }) => {
@@ -77,6 +82,11 @@ export const CourseListPage = () => {
   const handleEnroll = (courseId: number) => {
     setFeedback(null);
     enrollmentMutation.mutate({ courseId });
+  };
+
+  const isEnrolled = (courseId: number) => {
+    if (!user || !enrollments) return false;
+    return enrollments.some(e => e.courseId === courseId && e.userId === user.userId);
   };
 
   const loading = isCategoriesLoading || isCoursesLoading;
@@ -143,6 +153,7 @@ export const CourseListPage = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredCourses.map((course) => {
               const category = categories?.find((c) => c.id === course.categoryId);
+              const enrolled = isEnrolled(course.id);
               return (
                 <div key={course.id} className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
                   {course.thumbnailUrl && (
@@ -169,7 +180,7 @@ export const CourseListPage = () => {
                     </span>
                     <span className="inline-flex items-center space-x-1 rounded-full bg-gray-100 px-3 py-1">
                       <User className="h-4 w-4" />
-                      <span>Instructor {course.createdBy}</span>
+                      <span>{course.difficulty}</span>
                     </span>
                   </div>
 
@@ -185,13 +196,32 @@ export const CourseListPage = () => {
                       >
                         Details
                       </Link>
-                      <button
-                        onClick={() => handleEnroll(course.id)}
-                        disabled={enrollmentMutation.isPending}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {enrollmentMutation.isPending ? 'Enrolling...' : 'Enroll'}
-                      </button>
+                      {user?.role === 'Student' ? (
+                        enrolled ? (
+                          <button
+                            disabled
+                            className="rounded-lg bg-gray-400 px-4 py-2 text-sm font-semibold text-white cursor-not-allowed"
+                          >
+                            Enrolled
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEnroll(course.id)}
+                            disabled={enrollmentMutation.isPending}
+                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                          >
+                            {enrollmentMutation.isPending ? 'Enrolling...' : 'Enroll'}
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          disabled
+                          className="rounded-lg bg-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 cursor-not-allowed"
+                          title="Only students can enroll"
+                        >
+                          Staff Only
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

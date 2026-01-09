@@ -15,6 +15,7 @@ import {
   fetchQuizzes,
   fetchQuizAttempts,
   createCertificate,
+  fetchUserById,
 } from '../api/taaleem';
 import { parseApiError } from '../api/client';
 import type { Lesson } from '../types/api';
@@ -56,6 +57,12 @@ export const CourseDetailsPage = () => {
   const { data: enrollments } = useQuery({
     queryKey: ['enrollments'],
     queryFn: fetchEnrollments,
+  });
+
+  const { data: instructor } = useQuery({
+    queryKey: ['instructor', course?.createdBy],
+    queryFn: () => fetchUserById(course!.createdBy),
+    enabled: !!course?.createdBy,
   });
 
   const { data: quizzes } = useQuery({ queryKey: ['quizzes'], queryFn: fetchQuizzes });
@@ -184,6 +191,11 @@ export const CourseDetailsPage = () => {
                   </p>
                   <h1 className="mt-3 text-3xl font-bold lg:text-4xl">{course.title}</h1>
                   <p className="mt-3 max-w-3xl text-blue-100">{course.longDescription ?? course.shortDescription}</p>
+                  {instructor && (
+                    <p className="mt-2 text-sm text-blue-200">
+                      Instructor: <span className="font-semibold">{instructor.fullName}</span>
+                    </p>
+                  )}
                   <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-blue-100">
                     <span className="inline-flex items-center space-x-2"><Clock className="h-4 w-4" /><span>{formatDuration(course.estimatedDuration)}</span></span>
                     <span className="inline-flex items-center space-x-2"><Layers className="h-4 w-4" /><span>{courseLessons.length} lessons</span></span>
@@ -196,22 +208,28 @@ export const CourseDetailsPage = () => {
                     <div className="h-2 rounded-full bg-white" style={{ width: `${progress}%` }} />
                   </div>
                   <div className="mt-5 flex flex-col gap-3">
-                    {!isEnrolled ? (
-                      <button
-                        onClick={() => enrollMutation.mutate()}
-                        className="rounded-lg bg-white py-3 text-center text-blue-700 transition hover:bg-blue-50"
-                        disabled={enrollMutation.isPending}
-                      >
-                        {enrollMutation.isPending ? 'Enrolling...' : 'Enroll to start'}
-                      </button>
+                    {user?.role === 'Student' ? (
+                      !isEnrolled ? (
+                        <button
+                          onClick={() => enrollMutation.mutate()}
+                          className="rounded-lg bg-white py-3 text-center text-blue-700 transition hover:bg-blue-50"
+                          disabled={enrollMutation.isPending}
+                        >
+                          {enrollMutation.isPending ? 'Enrolling...' : 'Enroll to start'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleStart}
+                          className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
+                        >
+                          <Play className="h-5 w-5" />
+                          <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
+                        </button>
+                      )
                     ) : (
-                      <button
-                        onClick={handleStart}
-                        className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
-                      >
-                        <Play className="h-5 w-5" />
-                        <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
-                      </button>
+                      <div className="rounded-lg bg-white/20 py-3 text-center text-white text-sm">
+                        {user?.role === 'Instructor' ? 'Instructors cannot enroll' : 'Admins cannot enroll'}
+                      </div>
                     )}
                   </div>
                 </div>

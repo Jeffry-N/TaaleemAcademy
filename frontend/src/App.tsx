@@ -21,6 +21,7 @@ import { StudentDashboardPage } from './pages/StudentDashboardPage';
 import { LessonViewerPage } from './pages/LessonViewerPage';
 import { QuizExperiencePage } from './pages/QuizExperiencePage';
 import { CertificateDetailPage } from './pages/CertificateDetailPage';
+import { CategoryManagementPage } from './pages/Admin/CategoryManagementPage';
 
 const ProtectedRoute = ({ children }: { children: ReactElement }) => {
   const { user, initialized } = useAuth();
@@ -186,6 +187,16 @@ const App = () => {
             <ProtectedRoute>
               <RoleGuard roles={['Admin']}>
                 <UserManagementPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/categories"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Admin']}>
+                <CategoryManagementPage />
               </RoleGuard>
             </ProtectedRoute>
           }

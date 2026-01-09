@@ -20,8 +20,7 @@ namespace TaaleemAcademy.API.Mappings
 
             // UpdateUserDto -> User (Request to Entity)
             CreateMap<UpdateUserDto, User>()
-                .ForMember(dest => dest.HashedPassword, opt => opt.MapFrom(src => 
-                    string.IsNullOrEmpty(src.Password) ? null : src.Password))
+                .ForMember(dest => dest.HashedPassword, opt => opt.Ignore()) // Don't update password via regular update
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => DateTime.Now))
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore());
         }

@@ -53,6 +53,11 @@ export const fetchCategories = async (): Promise<Category[]> => {
   return res.data;
 };
 
+export const createCategory = async (payload: { name: string; description?: string; slug?: string }): Promise<Category> => {
+  const res = await api.post<Category>('/Category', payload);
+  return res.data;
+};
+
 export const fetchCourseById = async (id: number): Promise<Course> => {
   const res = await api.get<Course>(`/Course/${id}`);
   return res.data;
