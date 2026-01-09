@@ -24,7 +24,39 @@ export const CertificateDetailPage = () => {
     enabled: !!certificate?.courseId,
   });
 
-  const handleDownload = () => alert('Certificate download started! (PDF generation would occur here)');
+  const handleDownload = () => {
+    if (!certificate) return;
+    const token = localStorage.getItem('taaleem-auth');
+    const authData = token ? JSON.parse(token) : null;
+    
+    // Create download link
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5194/api';
+    const url = `${apiUrl}/Certificate/${certificate.id}/download`;
+    
+    // Fetch the HTML certificate and open in new window for printing/PDF
+    fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${authData?.token}`
+      }
+    })
+      .then(response => response.text())
+      .then(html => {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          // Trigger print dialog after a short delay
+          setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+          }, 250);
+        }
+      })
+      .catch(err => {
+        console.error('Download failed:', err);
+        alert('Failed to generate certificate. Please try again.');
+      });
+  };
   const handleShare = () => alert('Share options opened!');
 
   const completionDate = certificate?.generatedAt ? new Date(certificate.generatedAt).toLocaleDateString() : 'N/A';

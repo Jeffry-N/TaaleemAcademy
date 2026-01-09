@@ -94,6 +94,58 @@ namespace TaaleemAcademy.API.Controllers
             var item = _mapper.Map<LessonCompletion>(dto);
             _context.LessonCompletions.Add(item);
             await _context.SaveChangesAsync();
+
+            // AUTO-CERTIFICATE: Check if user has completed all lessons for this course
+            var lesson = await _context.Lessons.FindAsync(dto.LessonId);
+            if (lesson != null)
+            {
+                var courseId = lesson.CourseId;
+                var totalLessons = await _context.Lessons.CountAsync(l => l.CourseId == courseId);
+                var completedLessons = await _context.LessonCompletions
+                    .Join(_context.Lessons,
+                        lc => lc.LessonId,
+                        l => l.Id,
+                        (lc, l) => new { lc, l })
+                    .Where(x => x.l.CourseId == courseId && x.lc.UserId == dto.UserId)
+                    .CountAsync();
+
+                // If all lessons completed, auto-issue certificate
+                if (completedLessons >= totalLessons && totalLessons > 0)
+                {
+                    // Check if certificate doesn't already exist
+                    var existingCert = await _context.Certificates
+                        .FirstOrDefaultAsync(c => c.UserId == dto.UserId && c.CourseId == courseId);
+
+                    if (existingCert == null)
+                    {
+                        // Generate unique certificate code
+                        var certCode = $"CERT-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
+                        
+                        var certificate = new Certificate
+                        {
+                            UserId = dto.UserId,
+                            CourseId = courseId,
+                            CertificateCode = certCode,
+                            IssuedBy = dto.UserId, // Self-issued on completion
+                            GeneratedAt = DateTime.Now
+                        };
+
+                        _context.Certificates.Add(certificate);
+                        await _context.SaveChangesAsync();
+
+                        // Update enrollment to mark as completed
+                        var enrollment = await _context.Enrollments
+                            .FirstOrDefaultAsync(e => e.UserId == dto.UserId && e.CourseId == courseId);
+                        if (enrollment != null)
+                        {
+                            enrollment.IsCompleted = true;
+                            enrollment.CompletedAt = DateTime.Now;
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+                }
+            }
+
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, _mapper.Map<LessonCompletionDto>(item));
         }
 
