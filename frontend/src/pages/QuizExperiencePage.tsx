@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { fetchQuizById, fetchQuestions, fetchAnswersByQuiz } from '../api/taaleem';
+import { fetchQuizById, fetchQuestions, fetchAnswersByQuiz, createQuizAttempt, createStudentAnswer } from '../api/taaleem';
 import type { Question, Answer } from '../types/api';
+import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, ArrowRight, Bell, BookOpen, CheckCircle, Menu, Search, Settings, X } from 'lucide-react';
 
 export const QuizExperiencePage = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const quizId = parseInt(searchParams.get('id') || '0', 10);
 
@@ -17,6 +19,7 @@ export const QuizExperiencePage = () => {
   const [timeLeft, setTimeLeft] = useState(1800);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: quiz, isLoading: quizLoading } = useQuery({
     queryKey: ['quiz', quizId],
@@ -33,6 +36,46 @@ export const QuizExperiencePage = () => {
     queryKey: ['answers', quizId],
     queryFn: () => fetchAnswersByQuiz(quizId),
     enabled: quizId > 0,
+  });
+
+  // Mutation for creating quiz attempt and student answers
+  const submitQuizMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !quiz) throw new Error('User or quiz not found');
+
+      // Create quiz attempt
+      const attempt = await createQuizAttempt({
+        quizId: quiz.id,
+        userId: user.userId,
+      });
+
+      // Calculate score for each question
+      const studentAnswersPromises = questions.map(async (q: any) => {
+        const selectedAnswerId = selectedAnswers[q.id];
+        if (selectedAnswerId === undefined) return null;
+
+        const selectedAnswer = q.answers?.find((a: Answer) => a.id === selectedAnswerId);
+        if (!selectedAnswer) return null;
+
+        return createStudentAnswer({
+          attemptId: attempt.id,
+          questionId: q.id,
+          answerId: selectedAnswerId,
+          isCorrect: selectedAnswer.isCorrect,
+          pointsEarned: selectedAnswer.isCorrect ? 10 : 0,
+        });
+      });
+
+      await Promise.all(studentAnswersPromises);
+      return attempt;
+    },
+    onSuccess: () => {
+      setSubmitError(null);
+      setQuizSubmitted(true);
+    },
+    onError: (error: any) => {
+      setSubmitError(error.message || 'Failed to submit quiz');
+    },
   });
 
   // Filter questions for this quiz and attach their answers
@@ -80,7 +123,7 @@ export const QuizExperiencePage = () => {
       const proceed = window.confirm('You have unanswered questions. Submit anyway?');
       if (!proceed) return;
     }
-    setQuizSubmitted(true);
+    submitQuizMutation.mutate();
   };
 
   const calculateScore = () => {
@@ -129,6 +172,7 @@ export const QuizExperiencePage = () => {
     return (
       <AppShell>
         <div className="min-h-[80vh] bg-gray-50">
+          {submitError && <ErrorBanner message={`Submission error: ${submitError}`} />}
           <div className="text-center mb-8">
             {passed ? (
               <div className="mb-2 inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-700">Passed</div>
@@ -255,7 +299,13 @@ export const QuizExperiencePage = () => {
                   <button onClick={handleNext} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700">Next question</button>
                 )}
                 {currentQuestion === questions.length - 1 && (
-                  <button onClick={handleSubmit} className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700">Submit quiz</button>
+                  <button 
+                    onClick={handleSubmit} 
+                    disabled={submitQuizMutation.isPending}
+                    className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitQuizMutation.isPending ? 'Submitting...' : 'Submit quiz'}
+                  </button>
                 )}
               </div>
             </div>

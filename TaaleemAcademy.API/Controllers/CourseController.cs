@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaaleemAcademy.API.Data;
 using TaaleemAcademy.API.Models;
 using TaaleemAcademy.API.DTOs;
@@ -20,6 +21,10 @@ namespace TaaleemAcademy.API.Controllers
             _context = context;
             _mapper = mapper;
         }
+
+        // Helper method to get current user ID and role
+        private int GetCurrentUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        private string? GetCurrentUserRole() => User.FindFirst(ClaimTypes.Role)?.Value;
 
         // GET: api/Course - Public (anyone can view published courses)
         [HttpGet]
@@ -72,7 +77,48 @@ namespace TaaleemAcademy.API.Controllers
                     return BadRequest(ModelState);
                 }
 
+                var currentUserId = GetCurrentUserId();
+                var currentUserRole = GetCurrentUserRole();
+
                 var course = _mapper.Map<Course>(createCourseDto);
+
+                // If Instructor is creating, auto-assign to themselves
+                if (currentUserRole == "Instructor")
+                {
+                    course.CreatedBy = currentUserId;
+                }
+                else if (currentUserRole == "Admin")
+                {
+                    int instructorId = 0;
+
+                    // Check if InstructorEmail is provided
+                    if (!string.IsNullOrEmpty(createCourseDto.InstructorEmail))
+                    {
+                        var instructor = await _context.Users.FirstOrDefaultAsync(u => u.Email == createCourseDto.InstructorEmail && u.Role == "Instructor");
+                        if (instructor == null)
+                        {
+                            return BadRequest(new { message = $"No Instructor found with email '{createCourseDto.InstructorEmail}'" });
+                        }
+                        instructorId = instructor.Id;
+                    }
+                    // Otherwise check if CreatedBy ID is provided
+                    else if (createCourseDto.CreatedBy > 0)
+                    {
+                        var instructor = await _context.Users.FirstOrDefaultAsync(u => u.Id == createCourseDto.CreatedBy && u.Role == "Instructor");
+                        if (instructor == null)
+                        {
+                            return BadRequest(new { message = $"User with ID {createCourseDto.CreatedBy} is not a valid Instructor" });
+                        }
+                        instructorId = createCourseDto.CreatedBy;
+                    }
+                    else
+                    {
+                        return BadRequest(new { message = "Admin must specify either InstructorEmail or CreatedBy (Instructor ID)" });
+                    }
+
+                    course.CreatedBy = instructorId;
+                }
+
                 _context.Courses.Add(course);
                 await _context.SaveChangesAsync();
 

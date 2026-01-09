@@ -25,8 +25,12 @@ namespace TaaleemAcademy.API.DTOs
 
         public int? EstimatedDuration { get; set; }
 
-        [Required]
-        public int CreatedBy { get; set; }
+        // CreatedBy can be used by Admins to specify Instructor ID (for backward compatibility)
+        public int CreatedBy { get; set; } = 0;
+
+        // InstructorEmail can be used by Admins to specify Instructor by email (alternative to CreatedBy)
+        [EmailAddress]
+        public string? InstructorEmail { get; set; }
 
         public bool IsPublished { get; set; } = false;
     }
