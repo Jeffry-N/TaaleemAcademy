@@ -19,11 +19,11 @@ export const LoginPage = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/courses', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
-  if (user) return <Navigate to="/courses" replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

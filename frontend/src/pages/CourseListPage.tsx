@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { BookOpen, Clock, User, Star, Sparkles } from 'lucide-react';
 import { AppShell } from '../components/AppShell';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { createEnrollment, fetchCategories, fetchCourses, fetchEnrollments } from '../api/taaleem';
+import { createEnrollment, fetchCategories, fetchCourses, fetchEnrollments, deleteEnrollment } from '../api/taaleem';
 import type { Course } from '../types/api';
 import { parseApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +29,8 @@ export const CourseListPage = () => {
   const [difficultyFilter, setDifficultyFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showUnenrollModal, setShowUnenrollModal] = useState(false);
+  const [courseToUnenroll, setCourseToUnenroll] = useState<number | null>(null);
 
   const {
     data: categories,
@@ -53,6 +56,17 @@ export const CourseListPage = () => {
     },
     onSuccess: () => {
       setFeedback('Enrolled successfully!');
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    },
+    onError: (error) => {
+      setFeedback(parseApiError(error));
+    },
+  });
+
+  const unenrollMutation = useMutation({
+    mutationFn: (enrollmentId: number) => deleteEnrollment(enrollmentId),
+    onSuccess: () => {
+      setFeedback('Unenrolled successfully!');
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
     },
     onError: (error) => {
@@ -87,6 +101,28 @@ export const CourseListPage = () => {
   const isEnrolled = (courseId: number) => {
     if (!user || !enrollments) return false;
     return enrollments.some(e => e.courseId === courseId && e.userId === user.userId);
+  };
+
+  const getEnrollmentId = (courseId: number) => {
+    if (!user || !enrollments) return null;
+    const enrollment = enrollments.find(e => e.courseId === courseId && e.userId === user.userId);
+    return enrollment?.id ?? null;
+  };
+
+  const handleUnenroll = (courseId: number) => {
+    setCourseToUnenroll(courseId);
+    setShowUnenrollModal(true);
+  };
+
+  const confirmUnenroll = () => {
+    if (courseToUnenroll) {
+      const enrollmentId = getEnrollmentId(courseToUnenroll);
+      if (enrollmentId) {
+        setFeedback(null);
+        unenrollMutation.mutate(enrollmentId);
+      }
+      setCourseToUnenroll(null);
+    }
   };
 
   const loading = isCategoriesLoading || isCoursesLoading;
@@ -199,10 +235,11 @@ export const CourseListPage = () => {
                       {user?.role === 'Student' ? (
                         enrolled ? (
                           <button
-                            disabled
-                            className="rounded-lg bg-gray-400 px-4 py-2 text-sm font-semibold text-white cursor-not-allowed"
+                            onClick={() => handleUnenroll(course.id)}
+                            disabled={unenrollMutation.isPending}
+                            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
                           >
-                            Enrolled
+                            {unenrollMutation.isPending ? 'Unenrolling...' : 'Unenroll'}
                           </button>
                         ) : (
                           <button
@@ -236,6 +273,16 @@ export const CourseListPage = () => {
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        isOpen={showUnenrollModal}
+        onClose={() => setShowUnenrollModal(false)}
+        onConfirm={confirmUnenroll}
+        title="Unenroll from Course"
+        message="Are you sure you want to unenroll from this course? You will lose access to all course materials."
+        confirmText="Unenroll"
+        cancelText="Cancel"
+      />
     </AppShell>
   );
 };

@@ -115,6 +115,17 @@ export const createEnrollment = async (userId: number, courseId: number) => {
   return res.data as Enrollment;
 };
 
+export const deleteEnrollment = async (enrollmentId: number): Promise<void> => {
+  await api.delete(`/Enrollment/${enrollmentId}`);
+};
+
+export const fetchUserByEmail = async (email: string): Promise<User> => {
+  const users = await fetchUsers();
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user) throw new Error('User not found with that email');
+  return user;
+};
+
 // Quizzes
 export const fetchQuizzes = async (): Promise<Quiz[]> => {
   const res = await api.get<Quiz[]>('/Quiz');

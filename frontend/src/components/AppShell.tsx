@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, BookOpen, Award, Settings, Bell, Menu, X, Search, LogOut, UserCircle, Layers, Users, ClipboardList } from 'lucide-react';
+import { Home, BookOpen, Award, Settings, Bell, Menu, X, Search, LogOut, UserCircle, Layers, Users, ClipboardList, UserPlus } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,6 +15,7 @@ const studentNav = [
 const instructorNav = [
   { id: 'dashboard', name: 'Dashboard', icon: Home, to: '/dashboard' },
   { id: 'manage-courses', name: 'Manage Courses', icon: Layers, to: '/instructor/courses' },
+  { id: 'enrollments', name: 'Enrollments', icon: UserPlus, to: '/enrollments' },
   { id: 'quizzes', name: 'Quiz Builder', icon: ClipboardList, to: '/instructor/quizzes' },
   { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
   { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
@@ -25,6 +26,7 @@ const adminNav = [
   { id: 'users', name: 'User Management', icon: Users, to: '/admin/users' },
   { id: 'categories', name: 'Categories', icon: Layers, to: '/admin/categories' },
   { id: 'courses', name: 'Courses', icon: Layers, to: '/instructor/courses' },
+  { id: 'enrollments', name: 'Enrollments', icon: UserPlus, to: '/enrollments' },
   { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
   { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
 ];

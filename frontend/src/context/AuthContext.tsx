@@ -12,6 +12,7 @@ type AuthContextValue = {
   initialized: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updateUserData: (data: Partial<AuthResponse>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -55,8 +56,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  const updateUserData = (data: Partial<AuthResponse>) => {
+    if (user) {
+      const updated = { ...user, ...data };
+      setUser(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
+  };
+
   const value = useMemo(
-    () => ({ user, isLoading, error, initialized, login, logout }),
+    () => ({ user, isLoading, error, initialized, login, logout, updateUserData }),
     [user, isLoading, error, initialized],
   );
 

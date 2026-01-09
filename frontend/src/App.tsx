@@ -18,10 +18,14 @@ import { QuizTakePage } from './pages/QuizTakePage';
 import { AttemptsPage } from './pages/AttemptsPage';
 import { LandingPage } from './pages/LandingPage';
 import { StudentDashboardPage } from './pages/StudentDashboardPage';
+import { AdminDashboardPage } from './pages/Admin/AdminDashboardPage';
+import { InstructorDashboardPage } from './pages/Instructor/InstructorDashboardPage';
 import { LessonViewerPage } from './pages/LessonViewerPage';
 import { QuizExperiencePage } from './pages/QuizExperiencePage';
 import { CertificateDetailPage } from './pages/CertificateDetailPage';
 import { CategoryManagementPage } from './pages/Admin/CategoryManagementPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { EnrollmentManagementPage } from './pages/Instructor/EnrollmentManagementPage';
 
 const ProtectedRoute = ({ children }: { children: ReactElement }) => {
   const { user, initialized } = useAuth();
@@ -36,6 +40,18 @@ const ProtectedRoute = ({ children }: { children: ReactElement }) => {
   return children;
 };
 
+const DashboardRoute = () => {
+  const { user } = useAuth();
+  
+  if (user?.role === 'Admin') {
+    return <AdminDashboardPage />;
+  } else if (user?.role === 'Instructor') {
+    return <InstructorDashboardPage />;
+  } else {
+    return <StudentDashboardPage />;
+  }
+};
+
 const App = () => {
   return (
     <BrowserRouter>
@@ -48,7 +64,7 @@ const App = () => {
           element={
             <ProtectedRoute>
               <RoleGuard roles={['Student','Instructor','Admin']}>
-                <StudentDashboardPage />
+                <DashboardRoute />
               </RoleGuard>
             </ProtectedRoute>
           }
@@ -197,6 +213,26 @@ const App = () => {
             <ProtectedRoute>
               <RoleGuard roles={['Admin']}>
                 <CategoryManagementPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Student','Instructor','Admin']}>
+                <SettingsPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enrollments"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Instructor','Admin']}>
+                <EnrollmentManagementPage />
               </RoleGuard>
             </ProtectedRoute>
           }
