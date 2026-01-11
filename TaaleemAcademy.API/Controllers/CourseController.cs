@@ -197,7 +197,7 @@ namespace TaaleemAcademy.API.Controllers
             }
         }
 
-        // DELETE: api/Course/5 - Only Admin
+        // DELETE: api/Course/5 - Admin can unpublish any; Instructor can unpublish own
         [HttpDelete("{id}")]
         [Authorize(Roles = "Instructor,Admin")]
         public async Task<IActionResult> DeleteCourse(int id)
@@ -209,15 +209,67 @@ namespace TaaleemAcademy.API.Controllers
                 {
                     return NotFound(new { message = $"Course with ID {id} not found" });
                 }
+                var currentUserRole = GetCurrentUserRole();
+                var currentUserId = GetCurrentUserId();
 
-                _context.Courses.Remove(course);
-                await _context.SaveChangesAsync();
+                if (currentUserRole == "Instructor" && course.CreatedBy != currentUserId)
+                {
+                    return StatusCode(403, new { message = "You can only unpublish courses you created" });
+                }
 
-                return Ok(new { message = "Course deleted successfully", courseId = id });
+                // Soft delete behavior: mark as unpublished instead of removing
+                if (course.IsPublished)
+                {
+                    course.IsPublished = false;
+                    course.UpdatedAt = DateTime.Now;
+                    _context.Entry(course).State = EntityState.Modified;
+                    await _context.SaveChangesAsync();
+                }
+
+                var courseDto = _mapper.Map<CourseDto>(course);
+                return Ok(new { message = "Course unpublished successfully", course = courseDto });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error deleting course", error = ex.Message });
+            }
+        }
+
+        // POST: api/Course/{id}/publish - Admin can publish any; Instructor can publish own
+        [HttpPost("{id}/publish")]
+        [Authorize(Roles = "Instructor,Admin")]
+        public async Task<IActionResult> PublishCourse(int id)
+        {
+            try
+            {
+                var course = await _context.Courses.FindAsync(id);
+                if (course == null)
+                {
+                    return NotFound(new { message = $"Course with ID {id} not found" });
+                }
+
+                var currentUserRole = GetCurrentUserRole();
+                var currentUserId = GetCurrentUserId();
+
+                if (currentUserRole == "Instructor" && course.CreatedBy != currentUserId)
+                {
+                    return StatusCode(403, new { message = "You can only publish courses you created" });
+                }
+
+                if (!course.IsPublished)
+                {
+                    course.IsPublished = true;
+                    course.UpdatedAt = DateTime.Now;
+                    _context.Entry(course).State = EntityState.Modified;
+                    await _context.SaveChangesAsync();
+                }
+
+                var courseDto = _mapper.Map<CourseDto>(course);
+                return Ok(new { message = "Course published successfully", course = courseDto });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error publishing course", error = ex.Message });
             }
         }
     }

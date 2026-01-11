@@ -73,6 +73,18 @@ export const updateCourse = async (id: number, payload: Partial<Course> & { id: 
   return (res.data as any).course as Course;
 };
 
+export const deleteCourse = async (id: number): Promise<Course> => {
+  const res = await api.delete(`/Course/${id}`);
+  // API returns { message, course }
+  return (res.data as any).course as Course;
+};
+
+export const publishCourse = async (id: number): Promise<Course> => {
+  const res = await api.post(`/Course/${id}/publish`, {});
+  // API returns { message, course }
+  return (res.data as any).course as Course;
+};
+
 export const fetchLessons = async (): Promise<Lesson[]> => {
   const res = await api.get<Lesson[]>('/Lesson');
   return res.data;
