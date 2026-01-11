@@ -220,23 +220,53 @@ type LessonItemProps = {
 const LessonList = ({ lessons, onCreate, onUpdate, onDelete }: LessonItemProps) => {
   const [draft, setDraft] = useState({ title: '', lessonType: 'Video', orderIndex: (lessons[lessons.length-1]?.orderIndex ?? -1)+1, estimatedDuration: 0, content: '', videoUrl: '' });
 
+  const handleDraftTypeChange = (newType: string) => {
+    // Clear type-specific fields when switching types to avoid stale values
+    setDraft(d => ({ ...d, lessonType: newType, videoUrl: '', content: '' }));
+  };
+
+  const handleLessonTypeChange = (lesson: any, newType: string) => {
+    // Reset fields not relevant to the new type
+    const reset = newType === 'Text' ? { videoUrl: '', content: lesson.content ?? '' } : { videoUrl: lesson.videoUrl ?? '', content: '' };
+    onUpdate({ ...lesson, lessonType: newType, ...reset });
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded border border-gray-200 p-4">
         <div className="mb-2 font-medium">Add Lesson</div>
         <div className="grid gap-3 sm:grid-cols-5">
-          <input className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="Title" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))} />
-          <select className="rounded border border-gray-300 p-2" value={draft.lessonType} onChange={e=>setDraft(d=>({...d,lessonType:e.target.value}))}>
+          <div className="sm:col-span-2 space-y-1">
+            <div className="text-xs font-semibold text-gray-600">Title</div>
+            <input className="w-full rounded border border-gray-300 p-2" placeholder="Title" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))} />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-gray-600">Type</div>
+            <select className="w-full rounded border border-gray-300 p-2" value={draft.lessonType} onChange={e=>handleDraftTypeChange(e.target.value)}>
             <option>Video</option>
             <option>Text</option>
             <option>File</option>
-          </select>
-          <input type="number" className="rounded border border-gray-300 p-2" placeholder="Order" value={draft.orderIndex} onChange={e=>setDraft(d=>({...d,orderIndex:parseInt(e.target.value||'0',10)}))} />
-          <input type="number" className="rounded border border-gray-300 p-2" placeholder="Minutes" value={draft.estimatedDuration} onChange={e=>setDraft(d=>({...d,estimatedDuration:parseInt(e.target.value||'0',10)}))} />
+            </select>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-gray-600">Order (position)</div>
+            <input type="number" className="w-full rounded border border-gray-300 p-2" placeholder="Order" value={draft.orderIndex} onChange={e=>setDraft(d=>({...d,orderIndex:parseInt(e.target.value||'0',10)}))} />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-gray-600">Estimated minutes</div>
+            <input type="number" className="w-full rounded border border-gray-300 p-2" placeholder="Minutes" value={draft.estimatedDuration} onChange={e=>setDraft(d=>({...d,estimatedDuration:parseInt(e.target.value||'0',10)}))} />
+          </div>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <input className="rounded border border-gray-300 p-2" placeholder="Video URL (optional)" value={draft.videoUrl} onChange={e=>setDraft(d=>({...d,videoUrl:e.target.value}))} />
-          <input className="rounded border border-gray-300 p-2" placeholder="Content (optional)" value={draft.content} onChange={e=>setDraft(d=>({...d,content:e.target.value}))} />
+          {draft.lessonType === 'Video' && (
+            <input className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="Video URL" value={draft.videoUrl} onChange={e=>setDraft(d=>({...d,videoUrl:e.target.value}))} />
+          )}
+          {draft.lessonType === 'Text' && (
+            <textarea className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="Lesson content" rows={3} value={draft.content} onChange={e=>setDraft(d=>({...d,content:e.target.value}))} />
+          )}
+          {draft.lessonType === 'File' && (
+            <input className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="File URL (link to attachment)" value={draft.videoUrl} onChange={e=>setDraft(d=>({...d,videoUrl:e.target.value}))} />
+          )}
         </div>
         <div className="mt-3">
           <button onClick={()=>{ if(!draft.title) return; onCreate(draft); setDraft({ title: '', lessonType: 'Video', orderIndex: (lessons[lessons.length-1]?.orderIndex ?? -1)+1, estimatedDuration: 0, content: '', videoUrl: '' }); }} className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Add</button>
@@ -254,14 +284,33 @@ const LessonList = ({ lessons, onCreate, onUpdate, onDelete }: LessonItemProps) 
                 <button onClick={()=>onDelete(l.id)} className="ml-3 rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50">Delete</button>
               </div>
               <div className="mt-2 grid gap-3 sm:grid-cols-4">
-                <select className="rounded border border-gray-300 p-2" value={l.lessonType} onChange={e=>onUpdate({ ...l, lessonType: e.target.value })}>
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-gray-600">Type</div>
+                  <select className="w-full rounded border border-gray-300 p-2" value={l.lessonType} onChange={e=>handleLessonTypeChange(l, e.target.value)}>
                   <option>Video</option>
                   <option>Text</option>
                   <option>File</option>
-                </select>
-                <input type="number" className="rounded border border-gray-300 p-2" value={l.orderIndex} onChange={e=>onUpdate({ ...l, orderIndex: parseInt(e.target.value||'0',10) })} />
-                <input type="number" className="rounded border border-gray-300 p-2" value={l.estimatedDuration ?? 0} onChange={e=>onUpdate({ ...l, estimatedDuration: parseInt(e.target.value||'0',10) })} />
-                <input className="rounded border border-gray-300 p-2" placeholder="Video URL" value={l.videoUrl ?? ''} onChange={e=>onUpdate({ ...l, videoUrl: e.target.value })} />
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-gray-600">Order (position)</div>
+                  <input type="number" className="w-full rounded border border-gray-300 p-2" value={l.orderIndex} onChange={e=>onUpdate({ ...l, orderIndex: parseInt(e.target.value||'0',10) })} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-gray-600">Estimated minutes</div>
+                  <input type="number" className="w-full rounded border border-gray-300 p-2" value={l.estimatedDuration ?? 0} onChange={e=>onUpdate({ ...l, estimatedDuration: parseInt(e.target.value||'0',10) })} />
+                </div>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {l.lessonType === 'Video' && (
+                  <input className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="Video URL" value={l.videoUrl ?? ''} onChange={e=>onUpdate({ ...l, videoUrl: e.target.value })} />
+                )}
+                {l.lessonType === 'Text' && (
+                  <textarea className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="Lesson content" rows={3} value={l.content ?? ''} onChange={e=>onUpdate({ ...l, content: e.target.value })} />
+                )}
+                {l.lessonType === 'File' && (
+                  <input className="rounded border border-gray-300 p-2 sm:col-span-2" placeholder="File URL (link to attachment)" value={l.videoUrl ?? ''} onChange={e=>onUpdate({ ...l, videoUrl: e.target.value })} />
+                )}
               </div>
             </div>
           ))}

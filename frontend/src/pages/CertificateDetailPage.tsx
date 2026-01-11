@@ -25,37 +25,90 @@ export const CertificateDetailPage = () => {
   });
 
   const handleDownload = () => {
-    if (!certificate) return;
-    const token = localStorage.getItem('taaleem-auth');
-    const authData = token ? JSON.parse(token) : null;
+    if (!certificate || !course || !user) {
+      alert('Certificate data not loaded. Please try again.');
+      return;
+    }
     
-    // Create download link
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5194/api';
-    const url = `${apiUrl}/Certificate/${certificate.id}/download`;
-    
-    // Fetch the HTML certificate and open in new window for printing/PDF
-    fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${authData?.token}`
+    try {
+      // Create a canvas-based certificate image and download as PNG
+      const canvas = document.createElement('canvas');
+      canvas.width = 1200;
+      canvas.height = 850;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        alert('Canvas not supported in your browser');
+        return;
       }
-    })
-      .then(response => response.text())
-      .then(html => {
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          // Trigger print dialog after a short delay
-          setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-          }, 250);
-        }
-      })
-      .catch(err => {
-        console.error('Download failed:', err);
-        alert('Failed to generate certificate. Please try again.');
-      });
+    
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // White certificate box with border
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(50, 50, canvas.width - 100, canvas.height - 100);
+      ctx.strokeStyle = '#4F46E5';
+      ctx.lineWidth = 15;
+      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+      
+      // Header
+      ctx.fillStyle = '#6B7280';
+      ctx.font = 'bold 16px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('CERTIFICATE OF COMPLETION', canvas.width / 2, 150);
+      
+      // Course title
+      ctx.fillStyle = '#1F2937';
+      ctx.font = 'bold 42px Georgia';
+      ctx.fillText(course.title, canvas.width / 2, 220);
+      
+      // Body text
+      ctx.fillStyle = '#374151';
+      ctx.font = '22px Georgia';
+      ctx.fillText('This is to certify that', canvas.width / 2, 300);
+      
+      // Recipient name
+      ctx.fillStyle = '#4F46E5';
+      ctx.font = 'bold 48px Georgia';
+      ctx.fillText(user.fullName, canvas.width / 2, 380);
+      
+      // Completion text
+      ctx.fillStyle = '#374151';
+      ctx.font = '22px Georgia';
+      ctx.fillText('has successfully completed all course requirements', canvas.width / 2, 450);
+      ctx.fillText('and demonstrated proficiency in the subject matter.', canvas.width / 2, 490);
+      
+      // Details section
+      const detailY = 600;
+      ctx.font = 'bold 12px Georgia';
+      ctx.fillStyle = '#6B7280';
+      ctx.fillText('COMPLETION DATE', canvas.width / 2 - 300, detailY);
+      ctx.fillText('CERTIFICATE ID', canvas.width / 2, detailY);
+      ctx.fillText('COURSE ID', canvas.width / 2 + 300, detailY);
+      
+      ctx.font = 'bold 18px Georgia';
+      ctx.fillStyle = '#1F2937';
+      ctx.fillText(new Date(certificate.generatedAt).toLocaleDateString(), canvas.width / 2 - 300, detailY + 30);
+      ctx.fillText(`CERT-${certificate.id}`, canvas.width / 2, detailY + 30);
+      ctx.fillText(`#${course.id}`, canvas.width / 2 + 300, detailY + 30);
+      
+      // Convert to data URL and download immediately
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `Certificate-${course.title.replace(/[^a-z0-9]/gi, '-')}-${user.fullName.replace(/[^a-z0-9]/gi, '-')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Certificate download error:', err);
+      alert('Failed to download certificate. Please try again.');
+    }
   };
   const handleShare = () => alert('Share options opened!');
 

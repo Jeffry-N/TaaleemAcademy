@@ -70,7 +70,6 @@ export const CourseDetailsPage = () => {
   const issueCertMutation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('You must be logged in.');
-      // Only Admin/Instructor allowed by API
       return createCertificate({
         courseId,
         userId: user.userId,
@@ -79,8 +78,19 @@ export const CourseDetailsPage = () => {
         issuedBy: user.userId,
       });
     },
-    onSuccess: () => setFeedback('Certificate issued'),
-    onError: (err) => setFeedback(parseApiError(err)),
+    onSuccess: () => {
+      setFeedback('Certificate issued successfully! 🎉');
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+    },
+    onError: (err: any) => {
+      // Don't show error if certificate already exists (that's expected)
+      const errorMessage = parseApiError(err);
+      if (errorMessage.includes('already exists')) {
+        console.log('Certificate already exists for this course');
+      } else {
+        setFeedback(errorMessage);
+      }
+    },
   });
 
   const [autoIssued, setAutoIssued] = useState(false);
@@ -113,12 +123,39 @@ export const CourseDetailsPage = () => {
     return (lessons || []).filter((l) => l.courseId === courseId).sort((a, b) => a.orderIndex - b.orderIndex);
   }, [lessons, courseId]);
 
-  const completedLessonIds = useMemo(() => new Set((completions || []).map((c) => c.lessonId)), [completions]);
+  const completedLessonIds = useMemo(() => {
+    if (!user || !completions) {
+      console.log('CourseDetailsPage: Missing data', { user: !!user, completions: !!completions });
+      return new Set<number>();
+    }
+    
+    console.log('CourseDetailsPage user.userId:', user.userId, typeof user.userId);
+    console.log('All completions:', completions);
+    
+    // Only count completions for current user and current course - handle both string and number userId
+    const completed = new Set(
+      completions
+        .filter(c => {
+          const userMatch = String(c.userId) === String(user.userId);
+          const lessonMatch = courseLessons.some(l => l.id === c.lessonId);
+          if (userMatch && lessonMatch) console.log('Matched completion:', c);
+          return userMatch && lessonMatch;
+        })
+        .map(c => c.lessonId)
+    );
+    
+    console.log('Completed lesson IDs:', Array.from(completed));
+    return completed;
+  }, [completions, user, courseLessons]);
 
   const progress = useMemo(() => {
     if (!courseLessons.length) return 0;
-    return Math.round((completedLessonIds.size / courseLessons.length) * 100);
-  }, [courseLessons, completedLessonIds]);
+    const completed = completedLessonIds.size;
+    const total = courseLessons.length;
+    const pct = Math.round((completed / total) * 100);
+    console.log(`Course ${courseId} progress:`, { completed, total, pct });
+    return pct;
+  }, [courseLessons, completedLessonIds, courseId]);
 
   const isEnrolled = enrollments?.some((e) => e.courseId === courseId) ?? false;
   const courseQuizzes = useMemo(() => (quizzes ?? []).filter(q => q.courseId === courseId), [quizzes, courseId]);
@@ -264,9 +301,18 @@ export const CourseDetailsPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-gray-500">Order {lesson.orderIndex}</span>
+                      {isEnrolled && (
+                        <button
+                          onClick={() => navigate(`/lessons/viewer?courseId=${courseId}&lessonId=${lesson.id}`)}
+                          className="inline-flex items-center space-x-2 rounded-lg border border-blue-600 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
+                        >
+                          <Play className="h-4 w-4" />
+                          <span>View lesson</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleMarkComplete(lesson)}
-                        disabled={completed || completeMutation.isPending}
+                        disabled={completed || completeMutation.isPending || !isEnrolled}
                         className={`inline-flex items-center space-x-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
                           completed ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'
                         } disabled:opacity-60`}

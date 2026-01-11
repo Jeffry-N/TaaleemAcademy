@@ -1,10 +1,11 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { BookOpen, Award, Clock, TrendingUp, ArrowRight } from 'lucide-react';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { fetchEnrollments, fetchLessons, fetchCategories, fetchCourses, fetchQuizAttempts } from '../api/taaleem';
+import { fetchEnrollments, fetchLessons, fetchCategories, fetchCourses, fetchQuizAttempts, fetchLessonCompletions } from '../api/taaleem';
 import { useAuth } from '../context/AuthContext';
 
 export const StudentDashboardPage = () => {
@@ -36,23 +37,49 @@ export const StudentDashboardPage = () => {
     queryFn: fetchQuizAttempts,
   });
 
+  const { data: completions } = useQuery({
+    queryKey: ['lessonCompletions'],
+    queryFn: fetchLessonCompletions,
+  });
+
+  const userEnrollments = useMemo(() => {
+    if (!enrollments || !user) return [];
+    return enrollments.filter(e => e.userId === user.userId);
+  }, [enrollments, user]);
+
+  const enrolledCourses = useMemo(() => {
+    if (!userEnrollments.length || !courses || !lessons || !completions || !user) return [];
+
+    // Get all completions for current user
+    const userCompletionIds = new Set(
+      completions.filter(c => String(c.userId) === String(user.userId)).map(c => c.lessonId)
+    );
+
+    return userEnrollments
+      .map(enr => {
+        const courseLessons = lessons.filter(l => l.courseId === enr.courseId);
+        const completed = courseLessons.filter(l => userCompletionIds.has(l.id)).length;
+        const total = courseLessons.length;
+        const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        return {
+          ...enr,
+          completionPercentage: progress,
+          course: courses.find(c => c.id === enr.courseId),
+          category: categories?.find(cat => cat.id === courses.find(c => c.id === enr.courseId)?.categoryId),
+          lastLesson: courseLessons.sort((a, b) => b.orderIndex - a.orderIndex)[0]?.title ?? 'No lessons',
+        };
+      })
+      .filter(c => c.course)
+      .slice(0, 3);
+  }, [userEnrollments, courses, lessons, completions, categories, user]);
+
   const stats = [
-    { label: 'Courses Enrolled', value: enrollments?.filter(e => e.userId === user?.userId).length ?? 0, icon: BookOpen, color: 'bg-blue-500' },
+    { label: 'Courses Enrolled', value: userEnrollments.length, icon: BookOpen, color: 'bg-blue-500' },
     { label: 'Completed', value: enrollments?.filter(e => e.userId === user?.userId && e.isCompleted).length ?? 0, icon: Award, color: 'bg-green-500' },
     { label: 'Hours Learned', value: Math.floor((quizAttempts?.length ?? 0) * 0.5), icon: Clock, color: 'bg-purple-500' },
     { label: 'Certificates', value: enrollments?.filter(e => e.userId === user?.userId && e.isCompleted).length ?? 0, icon: TrendingUp, color: 'bg-orange-500' },
   ];
-
-  const userEnrollments = enrollments?.filter(e => e.userId === user?.userId) ?? [];
-  const enrolledCourses = userEnrollments
-    .map(enr => ({
-      ...enr,
-      course: courses?.find(c => c.id === enr.courseId),
-      category: categories?.find(cat => cat.id === courses?.find(c => c.id === enr.courseId)?.categoryId),
-      lastLesson: lessons?.filter(l => l.courseId === enr.courseId).sort((a, b) => b.orderIndex - a.orderIndex)[0]?.title ?? 'No lessons',
-    }))
-    .filter(c => c.course)
-    .slice(0, 3);
 
   const continueLesson = enrolledCourses[0];
 

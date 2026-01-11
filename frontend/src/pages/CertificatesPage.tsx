@@ -1,17 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { fetchCertificates, fetchCourses, createCertificate } from '../api/taaleem';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { useAuth } from '../context/AuthContext';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Award, Download, Eye } from 'lucide-react';
 
 export const CertificatesPage = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: certificates, isLoading, error } = useQuery({ queryKey: ['certificates'], queryFn: fetchCertificates });
   const { data: courses } = useQuery({ queryKey: ['courses'], queryFn: fetchCourses });
-  const issueMut = useMutation({ mutationFn: createCertificate });
+  const issueMut = useMutation({ 
+    mutationFn: createCertificate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+    },
+  });
   const canIssue = user?.role === 'Admin' || user?.role === 'Instructor';
 
   if (isLoading) {
@@ -35,20 +43,34 @@ export const CertificatesPage = () => {
           </div>
         )}
         {!certificates?.length ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-6 text-gray-600">No certificates yet.</div>
+          <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
+            <Award className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-600">No certificates yet. Complete a course to earn your first certificate!</p>
+          </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {certificates.map((c) => (
-              <div key={c.id} className="rounded-lg border border-gray-200 bg-white p-4">
-                <div className="text-sm text-gray-500">Certificate Code</div>
-                <div className="mb-2 text-lg font-semibold">{c.certificateCode}</div>
-                <div className="text-gray-700">{courseName(c.courseId)}</div>
-                <div className="text-sm text-gray-500">Issued: {new Date(c.generatedAt).toLocaleString()}</div>
-                {c.downloadUrl ? (
-                  <a href={c.downloadUrl} className="mt-3 inline-block rounded-md bg-blue-600 px-3 py-2 text-white hover:bg-blue-700">Download PDF</a>
-                ) : (
-                  <div className="mt-3 text-sm text-gray-500">No download available</div>
-                )}
+              <div key={c.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Award className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Certificate</div>
+                      <div className="font-semibold text-gray-900">{c.certificateCode}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mb-2 text-gray-900 font-medium">{courseName(c.courseId)}</div>
+                <div className="text-xs text-gray-500 mb-4">Issued: {new Date(c.generatedAt).toLocaleDateString()}</div>
+                <Link 
+                  to={`/certificates/detail?id=${c.id}`}
+                  className="flex items-center justify-center gap-2 w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  View & Download
+                </Link>
               </div>
             ))}
           </div>

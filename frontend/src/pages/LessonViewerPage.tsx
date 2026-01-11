@@ -112,10 +112,35 @@ export const LessonViewerPage = () => {
                     )}
                   </div>
                 </div>
-              ) : (
+              ) : currentLesson.lessonType === 'Text' ? (
                 <div className="w-full max-w-4xl overflow-y-auto bg-white p-8 text-gray-900">
                   <h2 className="mb-4 text-2xl font-bold">{currentLesson.title}</h2>
                   <div className="text-gray-700 whitespace-pre-wrap">{currentLesson.content || 'No content available.'}</div>
+                </div>
+              ) : currentLesson.lessonType === 'File' ? (
+                <div className="w-full max-w-4xl overflow-y-auto bg-white p-8 text-gray-900">
+                  <h2 className="mb-4 text-2xl font-bold">{currentLesson.title}</h2>
+                  {currentLesson.videoUrl ? (
+                    <div className="space-y-4">
+                      <p className="text-gray-600">This lesson contains a file attachment. Click below to view or download it.</p>
+                      <a
+                        href={currentLesson.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+                      >
+                        <FileText className="h-5 w-5" />
+                        <span>Open File</span>
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500">No file URL provided</div>
+                  )}
+                </div>
+              ) : (
+                <div className="w-full max-w-4xl overflow-y-auto bg-white p-8 text-gray-900">
+                  <h2 className="mb-4 text-2xl font-bold">{currentLesson.title}</h2>
+                  <div className="text-gray-500">Unknown lesson type</div>
                 </div>
               )}
             </div>

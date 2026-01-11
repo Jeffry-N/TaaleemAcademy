@@ -116,6 +116,16 @@ const App = () => {
           }
         />
         <Route
+          path="/certificates/detail"
+          element={
+            <ProtectedRoute>
+              <RoleGuard roles={['Student']}>
+                <CertificateDetailPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/certificates/sample"
           element={
             <ProtectedRoute>
