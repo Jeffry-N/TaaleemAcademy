@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { BookOpen, Award, TrendingUp, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { fetchCategories, fetchCourses, fetchUsers, fetchCertificates, fetchQuizAttempts } from '../api/taaleem';
+import { fetchCategories, fetchCourses } from '../api/taaleem';
 import { Spinner } from '../components/Spinner';
 
 const categoryIconMap: Record<string, string> = {
@@ -31,21 +31,6 @@ export const LandingPage = () => {
     queryFn: fetchCourses,
   });
 
-  const { data: users, isLoading: usersLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: fetchUsers,
-  });
-
-  const { data: certificates, isLoading: certificatesLoading } = useQuery({
-    queryKey: ['certificates'],
-    queryFn: fetchCertificates,
-  });
-
-  const { data: quizAttempts, isLoading: attemptsLoading } = useQuery({
-    queryKey: ['quizAttempts'],
-    queryFn: fetchQuizAttempts,
-  });
-
   // Get featured courses (published ones, limited to first 3)
   const featuredCourses = courses?.filter(c => c.isPublished).slice(0, 3) || [];
 
@@ -57,18 +42,12 @@ export const LandingPage = () => {
     color: categoryColorMap[cat.name] || categoryColorMap.default,
   })) || [];
 
-  // Calculate success rate from quiz attempts
-  const passedAttempts = quizAttempts?.filter(qa => qa.isPassed).length || 0;
-  const totalAttempts = quizAttempts?.length || 0;
-  const successRate = totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0;
-
-  // Dynamic stats based on actual data
-  const studentCount = users?.filter(u => u.role === 'Student').length || 0;
+  // Static stats
   const stats = [
-    { label: 'Active Students', value: studentCount.toString(), icon: Users },
+    { label: 'Active Students', value: '25K', icon: Users },
     { label: 'Total Courses', value: (courses?.filter(c => c.isPublished).length || 0).toString(), icon: BookOpen },
-    { label: 'Certificates Issued', value: (certificates?.length || 0).toString(), icon: Award },
-    { label: 'Success Rate', value: `${successRate}%`, icon: TrendingUp },
+    { label: 'Certificates Issued', value: '50K', icon: Award },
+    { label: 'Success Rate', value: '85%', icon: TrendingUp },
   ];
 
   const features = [
@@ -79,8 +58,8 @@ export const LandingPage = () => {
     'Mobile-friendly platform',
     'Community support',
   ];
-users
-  const isLoading = categoriesLoading || coursesLoading || usersLoading || certificatesLoading || attemptsLoading;
+
+  const isLoading = categoriesLoading || coursesLoading;
 
   return (
     <div className="min-h-screen bg-white">
