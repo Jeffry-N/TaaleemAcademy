@@ -5,16 +5,41 @@ import { createQuestion, createQuiz, deleteQuestion, deleteQuiz, fetchCourses, f
 import { Spinner } from '../../components/Spinner';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { Clock, Shuffle, Eye, RotateCcw, AlertCircle, CheckCircle, Plus, Trash2, GripVertical, ArrowLeft, FileText } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import type { Quiz, Answer } from '../../types/api';
 
 type ViewMode = 'list' | 'edit' | 'preview';
 
 export const QuizBuilderPage = () => {
+  const { user } = useAuth();
   const { data: courses } = useQuery({ queryKey: ['courses'], queryFn: fetchCourses });
   const { data: lessons } = useQuery({ queryKey: ['lessons'], queryFn: fetchLessons });
   const { data: quizzes, refetch: refetchQuizzes, isLoading, error } = useQuery({ queryKey: ['quizzes'], queryFn: fetchQuizzes });
   const { data: questions, refetch: refetchQuestions } = useQuery({ queryKey: ['questions'], queryFn: fetchQuestions });
   const { data: attempts } = useQuery({ queryKey: ['quizAttempts'], queryFn: fetchQuizAttempts });
+
+  // Filter quizzes to only show those from courses created by this instructor
+  const instructorQuizzes = useMemo(() => {
+    if (!quizzes || !courses || !user) return [];
+    const instructorCourseIds = courses.filter(c => c.createdBy === user.userId).map(c => c.id);
+    return quizzes.filter(q => instructorCourseIds.includes(q.courseId));
+  }, [quizzes, courses, user]);
+
+  // Group quizzes by course
+  const quizzesByCourseMemo = useMemo(() => {
+    if (!instructorQuizzes || !courses) return new Map<number, any>();
+    const grouped = new Map<number, any>();
+    instructorQuizzes.forEach(quiz => {
+      const course = courses.find(c => c.id === quiz.courseId);
+      if (course) {
+        if (!grouped.has(course.id)) {
+          grouped.set(course.id, { course, quizzes: [] });
+        }
+        grouped.get(course.id)!.quizzes.push(quiz);
+      }
+    });
+    return grouped;
+  }, [instructorQuizzes, courses]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [newQuiz, setNewQuiz] = useState({ title: '', courseId: 0, passingScore: 70 });
@@ -26,7 +51,7 @@ export const QuizBuilderPage = () => {
   const [saveNotification, setSaveNotification] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
 
-  const selectedQuiz = useMemo(() => quizzes?.find(q => q.id === selectedQuizId), [quizzes, selectedQuizId]);
+  const selectedQuiz = useMemo(() => instructorQuizzes?.find(q => q.id === selectedQuizId), [instructorQuizzes, selectedQuizId]);
   const quizQuestions = useMemo(() => (questions ?? []).filter(q => q.quizId === selectedQuizId).sort((a, b) => a.orderIndex - b.orderIndex), [questions, selectedQuizId]);
 
   const { refetch: refetchAnswers } = useQuery({
@@ -206,7 +231,7 @@ export const QuizBuilderPage = () => {
                 <input className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Quiz Title" value={newQuiz.title} onChange={e=>setNewQuiz(f=>({...f,title:e.target.value}))} />
                 <select className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" value={newQuiz.courseId} onChange={e=>setNewQuiz(f=>({...f,courseId:parseInt(e.target.value,10)}))}>
                   <option value={0}>Select Course</option>
-                  {(courses ?? []).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  {(courses ?? []).filter(c => c.createdBy === user?.userId).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                 </select>
                 <input type="number" min="0" max="100" className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Passing Score (%)" value={newQuiz.passingScore} onChange={e=>setNewQuiz(f=>({...f,passingScore:parseInt(e.target.value||'0',10)}))} />
               </div>
@@ -221,73 +246,91 @@ export const QuizBuilderPage = () => {
             <div className="grid gap-6 lg:grid-cols-2">
               <div>
                 <h2 className="mb-4 text-xl font-semibold text-gray-900">Your Quizzes</h2>
-                <div className="space-y-3">
-                  {(quizzes ?? []).map(q => {
-                    const course = courses?.find(c => c.id === q.courseId);
-                    const qCount = (questions ?? []).filter(qq => qq.quizId === q.id).length;
-                    return (
-                      <div key={q.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg text-gray-900">{q.title}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{course?.title || `Course #${q.courseId}`}</p>
-                            <div className="mt-2 flex flex-wrap gap-3 text-sm text-gray-600">
-                              <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" />Pass: {q.passingScore}%</span>
-                              <span className="flex items-center gap-1"><FileText className="h-4 w-4 text-blue-600" />{qCount} Question{qCount !== 1 ? 's' : ''}</span>
-                              {q.timeLimit && (<span className="flex items-center gap-1"><Clock className="h-4 w-4 text-orange-600" />{q.timeLimit} min</span>)}
-                              {q.isRequired && (<span className="flex items-center gap-1"><AlertCircle className="h-4 w-4 text-red-600" />Required</span>)}
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-4">
-                            <button onClick={()=>handleEditQuiz(q)} className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50">Edit</button>
-                            <button onClick={()=>setConfirmDialog({ isOpen: true, title: 'Delete Quiz', message: `Are you sure you want to delete "${q.title}"? This action cannot be undone.`, onConfirm: () => deleteQuizMut.mutate(q.id) })} className="rounded-lg border border-red-600 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Delete</button>
-                          </div>
+                {instructorQuizzes && instructorQuizzes.length > 0 ? (
+                  <div className="space-y-6">
+                    {Array.from(quizzesByCourseMemo.values()).map(({ course, quizzes: courseQuizzes }) => (
+                      <div key={course.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 px-4 py-3">
+                          <h3 className="font-semibold text-gray-900">{course.title}</h3>
+                        </div>
+                        <div className="space-y-3 p-4">
+                          {courseQuizzes.map((q: Quiz) => {
+                            const qCount = (questions ?? []).filter(qq => qq.quizId === q.id).length;
+                            return (
+                              <div key={q.id} className="rounded-lg border border-gray-200 bg-gray-50 p-4 hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-lg text-gray-900">{q.title}</h3>
+                                    <div className="mt-2 flex flex-wrap gap-3 text-sm text-gray-600">
+                                      <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-600" />Pass: {q.passingScore}%</span>
+                                      <span className="flex items-center gap-1"><FileText className="h-4 w-4 text-blue-600" />{qCount} Question{qCount !== 1 ? 's' : ''}</span>
+                                      {q.timeLimit && (<span className="flex items-center gap-1"><Clock className="h-4 w-4 text-orange-600" />{q.timeLimit} min</span>)}
+                                      {q.isRequired && (<span className="flex items-center gap-1"><AlertCircle className="h-4 w-4 text-red-600" />Required</span>)}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 ml-4">
+                                    <button onClick={()=>handleEditQuiz(q)} className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50">Edit</button>
+                                    <button onClick={()=>setConfirmDialog({ isOpen: true, title: 'Delete Quiz', message: `Are you sure you want to delete "${q.title}"? This action cannot be undone.`, onConfirm: () => deleteQuizMut.mutate(q.id) })} className="rounded-lg border border-red-600 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Delete</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    );
-                  })}
-                  {!(quizzes ?? []).length && (
-                    <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">
-                      No quizzes yet. Create your first quiz above!
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">
+                    No quizzes yet. Create your first quiz above!
+                  </div>
+                )}
               </div>
 
               <div>
                 <h2 className="mb-4 text-xl font-semibold text-gray-900">Quiz Analytics</h2>
-                <div className="space-y-3">
-                  {(quizzes ?? []).map(q => {
-                    const qAttempts = (attempts ?? []).filter(a => a.quizId === q.id);
-                    const count = qAttempts.length;
-                    const pass = qAttempts.filter(a => a.isPassed).length;
-                    const rate = count ? Math.round((pass / count) * 100) : 0;
-                    return (
-                      <div key={q.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">{q.title}</h3>
-                        <div className="mt-3 grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <div className="text-2xl font-bold text-blue-600">{count}</div>
-                            <div className="text-xs text-gray-600">Attempts</div>
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-green-600">{pass}</div>
-                            <div className="text-xs text-gray-600">Passed</div>
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-purple-600">{rate}%</div>
-                            <div className="text-xs text-gray-600">Pass Rate</div>
-                          </div>
+                {instructorQuizzes && instructorQuizzes.length > 0 ? (
+                  <div className="space-y-6">
+                    {Array.from(quizzesByCourseMemo.values()).map(({ course, quizzes: courseQuizzes }) => (
+                      <div key={course.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 px-4 py-3">
+                          <h3 className="font-semibold text-gray-900">{course.title}</h3>
+                        </div>
+                        <div className="space-y-3 p-4">
+                          {courseQuizzes.map((q: Quiz) => {
+                            const qAttempts = (attempts ?? []).filter(a => a.quizId === q.id);
+                            const count = qAttempts.length;
+                            const pass = qAttempts.filter(a => a.isPassed).length;
+                            const rate = count ? Math.round((pass / count) * 100) : 0;
+                            return (
+                              <div key={q.id} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <h3 className="font-semibold text-gray-900">{q.title}</h3>
+                                <div className="mt-3 grid grid-cols-3 gap-4 text-center">
+                                  <div>
+                                    <div className="text-2xl font-bold text-blue-600">{count}</div>
+                                    <div className="text-xs text-gray-600">Attempts</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-2xl font-bold text-green-600">{pass}</div>
+                                    <div className="text-xs text-gray-600">Passed</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-2xl font-bold text-purple-600">{rate}%</div>
+                                    <div className="text-xs text-gray-600">Pass Rate</div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    );
-                  })}
-                  {!(quizzes ?? []).length && (
-                    <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">
-                      Analytics will appear here once you have quizzes.
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">
+                    No quizzes to analyze yet.
+                  </div>
+                )}
               </div>
             </div>
           </>
