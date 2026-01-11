@@ -102,6 +102,13 @@ namespace TaaleemAcademy.API.Controllers
                     return BadRequest(ModelState);
                 }
 
+                // Validate quiz exists and retake rules
+                var quiz = await _context.Quizzes.FindAsync(createQuizAttemptDto.QuizId);
+                if (quiz == null)
+                {
+                    return NotFound(new { message = "Quiz not found" });
+                }
+
                 var currentUserId = GetCurrentUserId();
                 var currentUserRole = GetCurrentUserRole();
 
@@ -109,6 +116,20 @@ namespace TaaleemAcademy.API.Controllers
                 if (currentUserRole == "Student" && createQuizAttemptDto.UserId != currentUserId)
                 {
                     return StatusCode(403, new { message = "You can only create quiz attempts for yourself" });
+                }
+
+                // Enforce retake and attempt limits
+                var existingAttempts = await _context.QuizAttempts
+                    .CountAsync(a => a.QuizId == createQuizAttemptDto.QuizId && a.UserId == createQuizAttemptDto.UserId);
+
+                if (!quiz.AllowRetake && existingAttempts >= 1)
+                {
+                    return StatusCode(403, new { message = "Retakes are not allowed for this quiz." });
+                }
+
+                if (quiz.MaxAttempts.HasValue && existingAttempts >= quiz.MaxAttempts.Value)
+                {
+                    return StatusCode(403, new { message = "You have reached the maximum number of attempts for this quiz." });
                 }
 
                 var quizAttempt = _mapper.Map<QuizAttempt>(createQuizAttemptDto);

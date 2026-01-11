@@ -109,9 +109,29 @@ namespace TaaleemAcademy.API.Controllers
                     .Where(x => x.l.CourseId == courseId && x.lc.UserId == dto.UserId)
                     .CountAsync();
 
-                // If all lessons completed, auto-issue certificate
+                // If all lessons completed, and all quizzes passed, auto-issue certificate
                 if (completedLessons >= totalLessons && totalLessons > 0)
                 {
+                    // Require passing all course quizzes
+                    var quizIds = await _context.Quizzes
+                        .Where(q => q.CourseId == courseId)
+                        .Select(q => q.Id)
+                        .ToListAsync();
+
+                    if (quizIds.Any())
+                    {
+                        var passedQuizCount = await _context.QuizAttempts
+                            .Where(a => a.UserId == dto.UserId && a.IsPassed && quizIds.Contains(a.QuizId))
+                            .Select(a => a.QuizId)
+                            .Distinct()
+                            .CountAsync();
+
+                        if (passedQuizCount < quizIds.Count)
+                        {
+                            return CreatedAtAction(nameof(GetById), new { id = item.Id }, _mapper.Map<LessonCompletionDto>(item));
+                        }
+                    }
+
                     // Check if certificate doesn't already exist
                     var existingCert = await _context.Certificates
                         .FirstOrDefaultAsync(c => c.UserId == dto.UserId && c.CourseId == courseId);

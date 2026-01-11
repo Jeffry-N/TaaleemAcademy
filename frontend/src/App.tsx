@@ -21,7 +21,6 @@ import { StudentDashboardPage } from './pages/StudentDashboardPage';
 import { AdminDashboardPage } from './pages/Admin/AdminDashboardPage';
 import { InstructorDashboardPage } from './pages/Instructor/InstructorDashboardPage';
 import { LessonViewerPage } from './pages/LessonViewerPage';
-import { QuizExperiencePage } from './pages/QuizExperiencePage';
 import { CertificateDetailPage } from './pages/CertificateDetailPage';
 import { CategoryManagementPage } from './pages/Admin/CategoryManagementPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -151,16 +150,6 @@ const App = () => {
             <ProtectedRoute>
               <RoleGuard roles={['Student','Instructor','Admin']}>
                 <QuizTakePage />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/quiz/demo"
-          element={
-            <ProtectedRoute>
-              <RoleGuard roles={['Student','Instructor','Admin']}>
-                <QuizExperiencePage />
               </RoleGuard>
             </ProtectedRoute>
           }

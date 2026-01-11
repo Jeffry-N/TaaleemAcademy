@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, CheckCircle, FileText, MessageSquare, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, FileText, MessageSquare, X, BookOpen, Lock } from 'lucide-react';
 import { AppShell } from '../components/AppShell';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { fetchLessons, fetchCourseById, markLessonComplete } from '../api/taaleem';
+import { fetchLessons, fetchCourseById, markLessonComplete, fetchQuizzes, fetchLessonCompletions, fetchQuizAttempts } from '../api/taaleem';
 import { useAuth } from '../context/AuthContext';
 
 export const LessonViewerPage = () => {
   const { user } = useAuth();
+  const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const courseId = parseInt(searchParams.get('courseId') || '0', 10);
   const lessonId = parseInt(searchParams.get('lessonId') || '0', 10);
@@ -29,6 +30,21 @@ export const LessonViewerPage = () => {
     queryFn: fetchLessons,
   });
 
+  const { data: quizzes } = useQuery({
+    queryKey: ['quizzes'],
+    queryFn: fetchQuizzes,
+  });
+
+  const { data: completions } = useQuery({
+    queryKey: ['lessonCompletions'],
+    queryFn: fetchLessonCompletions,
+  });
+
+  const { data: attempts } = useQuery({
+    queryKey: ['attempts'],
+    queryFn: fetchQuizAttempts,
+  });
+
   const markCompleteMutation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('Not logged in');
@@ -37,6 +53,45 @@ export const LessonViewerPage = () => {
   });
 
   const courseLessons = lessons?.filter((l) => l.courseId === courseId).sort((a, b) => a.orderIndex - b.orderIndex) ?? [];
+  const isLessonComplete = user ? completions?.some((c) => c.lessonId === currentLessonId && c.userId === user.userId) : false;
+  const linkedQuiz = quizzes?.find((q) => q.lessonId === currentLessonId);
+
+  // Check if lesson is locked (not first lesson, and previous lesson not completed or quiz not passed)
+  const canAccessLesson = (lessonId: number): boolean => {
+    const idx = courseLessons.findIndex((l) => l.id === lessonId);
+    if (idx <= 0) return true; // First lesson always accessible
+    
+    const prevLesson = courseLessons[idx - 1];
+    const isPrevComplete = completions?.some((c) => c.lessonId === prevLesson.id && c.userId === user?.userId);
+    
+    if (!isPrevComplete) return false;
+    
+    const prevQuiz = quizzes?.find((q) => q.lessonId === prevLesson.id);
+    if (prevQuiz) {
+      const isPrevQuizPassed = attempts?.some((a) => a.quizId === prevQuiz.id && a.userId === user?.userId && a.isPassed);
+      return !!isPrevQuizPassed;
+    }
+    
+    return true;
+  };
+
+  const getLockReason = (lessonId: number): string | null => {
+    const idx = courseLessons.findIndex((l) => l.id === lessonId);
+    if (idx <= 0) return null;
+    
+    const prevLesson = courseLessons[idx - 1];
+    const isPrevComplete = completions?.some((c) => c.lessonId === prevLesson.id && c.userId === user?.userId);
+    
+    if (!isPrevComplete) return `Complete "${prevLesson.title}" first`;
+    
+    const prevQuiz = quizzes?.find((q) => q.lessonId === prevLesson.id);
+    if (prevQuiz) {
+      const isPrevQuizPassed = attempts?.some((a) => a.quizId === prevQuiz.id && a.userId === user?.userId && a.isPassed);
+      if (!isPrevQuizPassed) return `Pass the quiz for "${prevLesson.title}" first`;
+    }
+    
+    return null;
+  };
 
   useEffect(() => {
     if (courseLessons.length > 0 && currentLessonId === 0) {
@@ -63,11 +118,35 @@ export const LessonViewerPage = () => {
 
   const loading = courseLoading || lessonsLoading;
   const error = courseError;
+  const isLocked = !canAccessLesson(currentLessonId);
+  const lockReason = isLocked ? getLockReason(currentLessonId) : null;
 
   if (loading) return <AppShell><Spinner /></AppShell>;
   if (error) return <AppShell><ErrorBanner message="Failed to load lesson" /></AppShell>;
   if (!course) return <AppShell><ErrorBanner message="Course not found" /></AppShell>;
   if (!currentLesson) return <AppShell><ErrorBanner message="No lessons available" /></AppShell>;
+
+  if (isLocked) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[70vh] items-center justify-center bg-gray-900 px-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-gray-700 bg-gray-800 p-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
+              <Lock className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Lesson Locked</h2>
+            <p className="text-gray-400">{lockReason}</p>
+            <button
+              onClick={() => window.history.back()}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+            >
+              Back to Progress
+            </button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -146,37 +225,54 @@ export const LessonViewerPage = () => {
             </div>
 
             <div className="border-t border-gray-800 bg-gray-800 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={goToPrevious}
-                  disabled={!hasPrevious}
-                  className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition ${
-                    hasPrevious ? 'bg-gray-700 text-white hover:bg-gray-600' : 'cursor-not-allowed bg-gray-900 text-gray-600'
-                  }`}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                  <span>Previous</span>
-                </button>
+              <div className="space-y-3">
+                {isLessonComplete && linkedQuiz && (
+                  <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-50/10 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-100">Quiz Available</p>
+                      <p className="text-xs text-amber-200/70">{linkedQuiz.title}</p>
+                    </div>
+                    <button
+                      onClick={() => nav(`/quiz/${linkedQuiz.id}/take`)}
+                      className="flex items-center space-x-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      <span>Take Quiz</span>
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    onClick={goToPrevious}
+                    disabled={!hasPrevious}
+                    className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition ${
+                      hasPrevious ? 'bg-gray-700 text-white hover:bg-gray-600' : 'cursor-not-allowed bg-gray-900 text-gray-600'
+                    }`}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                    <span>Previous</span>
+                  </button>
 
-                <button
-                  onClick={handleMarkComplete}
-                  disabled={markCompleteMutation.isPending}
-                  className="flex items-center space-x-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white transition hover:bg-green-700 disabled:opacity-70"
-                >
-                  <CheckCircle className="h-5 w-5" />
-                  <span>{markCompleteMutation.isPending ? 'Saving...' : 'Mark Complete'}</span>
-                </button>
+                  <button
+                    onClick={handleMarkComplete}
+                    disabled={markCompleteMutation.isPending}
+                    className="flex items-center space-x-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white transition hover:bg-green-700 disabled:opacity-70"
+                  >
+                    <CheckCircle className="h-5 w-5" />
+                    <span>{markCompleteMutation.isPending ? 'Saving...' : 'Mark Complete'}</span>
+                  </button>
 
-                <button
-                  onClick={goToNext}
-                  disabled={!hasNext}
-                  className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition ${
-                    hasNext ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-900 text-gray-600'
-                  }`}
-                >
-                  <span>Next</span>
-                  <ChevronRight className="h-5 w-5" />
-                </button>
+                  <button
+                    onClick={goToNext}
+                    disabled={!hasNext}
+                    className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition ${
+                      hasNext ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-900 text-gray-600'
+                    }`}
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -208,20 +304,36 @@ export const LessonViewerPage = () => {
               </div>
               <div className="flex-1 overflow-y-auto">
                 <div className="space-y-2 p-4">
-                  {courseLessons.map((lesson) => (
-                    <button
-                      key={lesson.id}
-                      onClick={() => setCurrentLessonId(lesson.id)}
-                      className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
-                        lesson.id === currentLessonId ? 'border-blue-500 bg-blue-50/10 text-blue-100' : 'border-gray-700 text-gray-100 hover:bg-gray-700'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-semibold">{lesson.title}</div>
-                        <div className="text-sm text-gray-400">{lesson.estimatedDuration ? `${lesson.estimatedDuration} min` : 'Self-paced'}</div>
-                      </div>
-                    </button>
-                  ))}
+                  {courseLessons.map((lesson) => {
+                    const lessonLocked = !canAccessLesson(lesson.id);
+                    const lessonComplete = completions?.some((c) => c.lessonId === lesson.id && c.userId === user?.userId);
+                    return (
+                      <button
+                        key={lesson.id}
+                        onClick={() => !lessonLocked && setCurrentLessonId(lesson.id)}
+                        disabled={lessonLocked}
+                        className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
+                          lessonLocked
+                            ? 'cursor-not-allowed border-gray-600 bg-gray-700/50 text-gray-500'
+                            : lesson.id === currentLessonId
+                            ? 'border-blue-500 bg-blue-50/10 text-blue-100'
+                            : 'border-gray-700 text-gray-100 hover:bg-gray-700'
+                        }`}
+                      >
+                        <div className="flex flex-1 items-center gap-3">
+                          {lessonLocked ? (
+                            <Lock className="h-4 w-4 flex-shrink-0" />
+                          ) : lessonComplete ? (
+                            <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-400" />
+                          ) : null}
+                          <div>
+                            <div className="font-semibold">{lesson.title}</div>
+                            <div className="text-sm text-gray-400">{lesson.estimatedDuration ? `${lesson.estimatedDuration} min` : 'Self-paced'}</div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="space-y-3 border-t border-gray-700 bg-gray-900 px-6 py-4">

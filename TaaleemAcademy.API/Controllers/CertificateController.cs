@@ -131,6 +131,40 @@ namespace TaaleemAcademy.API.Controllers
                         }
                     }
 
+                    // Check quizzes: all course quizzes must be passed
+                    var quizIds = await _context.Quizzes
+                        .Where(q => q.CourseId == createCertificateDto.CourseId)
+                        .Select(q => q.Id)
+                        .ToListAsync();
+
+                    if (quizIds.Any())
+                    {
+                        var passedQuizCount = await _context.QuizAttempts
+                            .Where(a => a.UserId == currentUserId && a.IsPassed && quizIds.Contains(a.QuizId))
+                            .Select(a => a.QuizId)
+                            .Distinct()
+                            .CountAsync();
+
+                        if (passedQuizCount < quizIds.Count)
+                        {
+                            return StatusCode(403, new { message = "You must pass all quizzes for this course before generating a certificate." });
+                        }
+
+                        // Check overall score: average of all quiz attempts must be >= 50
+                        var quizAttempts = await _context.QuizAttempts
+                            .Where(a => a.UserId == currentUserId && quizIds.Contains(a.QuizId))
+                            .ToListAsync();
+
+                        if (quizAttempts.Any())
+                        {
+                            var averageScore = quizAttempts.Average(a => a.Score);
+                            if (averageScore < 50)
+                            {
+                                return StatusCode(403, new { message = $"Your overall quiz score is {Math.Round(averageScore, 1)}%. You need a minimum of 50% overall to generate a certificate." });
+                            }
+                        }
+                    }
+
                     // Force issuer to the current user
                     createCertificateDto.IssuedBy = currentUserId;
                 }

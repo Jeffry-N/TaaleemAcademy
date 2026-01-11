@@ -74,7 +74,7 @@ namespace TaaleemAcademy.API.Controllers
                     Id = x.a.Id,
                     QuestionId = x.a.QuestionId,
                     AnswerText = x.a.AnswerText,
-                    IsCorrect = (currentUserRole == "Admin" || currentUserRole == "Instructor") ? x.a.IsCorrect : false,
+                    IsCorrect = x.a.IsCorrect,
                     OrderIndex = x.a.OrderIndex,
                 })
                 .ToListAsync();

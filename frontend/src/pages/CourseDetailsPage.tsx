@@ -160,6 +160,22 @@ export const CourseDetailsPage = () => {
   const isEnrolled = enrollments?.some((e) => e.courseId === courseId) ?? false;
   const courseQuizzes = useMemo(() => (quizzes ?? []).filter(q => q.courseId === courseId), [quizzes, courseId]);
   const myQuizAttempts = useMemo(() => (quizAttempts ?? []).filter(a => courseQuizzes.some(q => q.id === a.quizId)), [quizAttempts, courseQuizzes]);
+  
+  const overallScore = useMemo(() => {
+    if (!myQuizAttempts.length) return null;
+    const avg = myQuizAttempts.reduce((sum, a) => sum + a.score, 0) / myQuizAttempts.length;
+    return Math.round(avg * 10) / 10; // 1 decimal place
+  }, [myQuizAttempts]);
+
+  const canIssueCertificate = useMemo(() => {
+    if (progress !== 100) return false;
+    if (!courseQuizzes.length) return true;
+    // All quizzes must be passed
+    const allPassed = courseQuizzes.every(q => myQuizAttempts.some(a => a.quizId === q.id && a.isPassed));
+    if (!allPassed) return false;
+    // Overall score must be >= 50
+    return overallScore !== null && overallScore >= 50;
+  }, [progress, courseQuizzes, myQuizAttempts, overallScore]);
 
   const loading = isCourseLoading || lessonsLoading || completionsLoading;
   const errorMsg = courseError
@@ -255,13 +271,20 @@ export const CourseDetailsPage = () => {
                           {enrollMutation.isPending ? 'Enrolling...' : 'Enroll to start'}
                         </button>
                       ) : (
-                        <button
-                          onClick={handleStart}
-                          className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
-                        >
-                          <Play className="h-5 w-5" />
-                          <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
-                        </button>
+                        <>
+                          <button
+                            onClick={handleStart}
+                            className="flex items-center justify-center space-x-2 rounded-lg bg-white py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
+                          >
+                            <Play className="h-5 w-5" />
+                            <span>{firstIncomplete ? 'Continue learning' : 'Review lessons'}</span>
+                          </button>
+                          {courseQuizzes.length > 0 && (
+                            <div className={`rounded-lg px-3 py-2 text-center text-xs font-semibold ${overallScore !== null && overallScore >= 50 ? 'bg-green-100 text-green-700' : 'bg-white/30 text-white'}`}>
+                              Quiz Score: {overallScore !== null ? `${overallScore}%` : 'No attempts yet'} {courseQuizzes.length > 0 && '(Min 50% needed)'}
+                            </div>
+                          )}
+                        </>
                       )
                     ) : (
                       <div className="rounded-lg bg-white/20 py-3 text-center text-white text-sm">
