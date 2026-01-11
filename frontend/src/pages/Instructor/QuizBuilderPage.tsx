@@ -228,12 +228,22 @@ export const QuizBuilderPage = () => {
                 <h2 className="text-xl font-semibold text-gray-900">Create New Quiz</h2>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
-                <input className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Quiz Title" value={newQuiz.title} onChange={e=>setNewQuiz(f=>({...f,title:e.target.value}))} />
-                <select className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" value={newQuiz.courseId} onChange={e=>setNewQuiz(f=>({...f,courseId:parseInt(e.target.value,10)}))}>
-                  <option value={0}>Select Course</option>
-                  {(courses ?? []).filter(c => c.createdBy === user?.userId).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                </select>
-                <input type="number" min="0" max="100" className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Passing Score (%)" value={newQuiz.passingScore} onChange={e=>setNewQuiz(f=>({...f,passingScore:parseInt(e.target.value||'0',10)}))} />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quiz Title</label>
+                  <input className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" placeholder="Enter title" value={newQuiz.title} onChange={e=>setNewQuiz(f=>({...f,title:e.target.value}))} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                  <select className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" value={newQuiz.courseId} onChange={e=>setNewQuiz(f=>({...f,courseId:parseInt(e.target.value,10)}))}>
+                    <option value={0}>Select Course</option>
+                    {(courses ?? []).filter(c => c.createdBy === user?.userId).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passing Score (%)</label>
+                  <input type="number" min="0" max="100" className="rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" placeholder="70" value={newQuiz.passingScore} onChange={e=>setNewQuiz(f=>({...f,passingScore:parseInt(e.target.value||'0',10)}))} />
+                  <p className="mt-1 text-xs text-gray-500">Minimum % score to pass</p>
+                </div>
               </div>
               <div className="mt-4">
                 <button disabled={!newQuiz.title || !newQuiz.courseId || createQuizMut.isPending} onClick={()=>createQuizMut.mutate()} className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:bg-gray-300">
