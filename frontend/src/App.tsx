@@ -109,7 +109,7 @@ const App = () => {
           path="/certificates"
           element={
             <ProtectedRoute>
-              <RoleGuard roles={['Student','Instructor','Admin']}>
+              <RoleGuard roles={['Student']}>
                 <CertificatesPage />
               </RoleGuard>
             </ProtectedRoute>
@@ -119,7 +119,7 @@ const App = () => {
           path="/certificates/sample"
           element={
             <ProtectedRoute>
-              <RoleGuard roles={['Student','Instructor','Admin']}>
+              <RoleGuard roles={['Student']}>
                 <CertificateDetailPage />
               </RoleGuard>
             </ProtectedRoute>

@@ -17,7 +17,6 @@ const instructorNav = [
   { id: 'manage-courses', name: 'Manage Courses', icon: Layers, to: '/instructor/courses' },
   { id: 'enrollments', name: 'Enrollments', icon: UserPlus, to: '/enrollments' },
   { id: 'quizzes', name: 'Quiz Builder', icon: ClipboardList, to: '/instructor/quizzes' },
-  { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
   { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
 ];
 
@@ -27,7 +26,6 @@ const adminNav = [
   { id: 'categories', name: 'Categories', icon: Layers, to: '/admin/categories' },
   { id: 'courses', name: 'Courses', icon: Layers, to: '/instructor/courses' },
   { id: 'enrollments', name: 'Enrollments', icon: UserPlus, to: '/enrollments' },
-  { id: 'certificates', name: 'Certificates', icon: Award, to: '/certificates' },
   { id: 'settings', name: 'Settings', icon: Settings, to: '/settings' },
 ];
 
