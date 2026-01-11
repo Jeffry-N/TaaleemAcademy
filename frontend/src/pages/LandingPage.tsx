@@ -5,28 +5,18 @@ import { fetchCategories, fetchCourses, fetchUsers, fetchCertificates, fetchQuiz
 import { Spinner } from '../components/Spinner';
 
 const categoryIconMap: Record<string, string> = {
-  'Web Development': '💻',
-  'Data Science': '📊',
-  'Mobile Development': '📱',
-  'UI/UX Design': '🎨',
-  'Backend Development': '⚙️',
-  'DevOps': '🚀',
-  'Programming': '💻',
-  'Design': '🎨',
-  'Business': '📈',
+  'Software Development': '💻',
+  'Mathematics & Statistics': '📊',
+  'Design & Creativity': '🎨',
+  'Finance & Accounting': '📈',
   'default': '📚',
 };
 
 const categoryColorMap: Record<string, string> = {
-  'Web Development': 'bg-blue-100 text-blue-600',
-  'Data Science': 'bg-purple-100 text-purple-600',
-  'Mobile Development': 'bg-green-100 text-green-600',
-  'UI/UX Design': 'bg-pink-100 text-pink-600',
-  'Backend Development': 'bg-orange-100 text-orange-600',
-  'DevOps': 'bg-indigo-100 text-indigo-600',
-  'Programming': 'bg-blue-100 text-blue-600',
-  'Design': 'bg-pink-100 text-pink-600',
-  'Business': 'bg-yellow-100 text-yellow-600',
+  'Software Development': 'bg-blue-100 text-blue-600',
+  'Mathematics & Statistics': 'bg-purple-100 text-purple-600',
+  'Design & Creativity': 'bg-pink-100 text-pink-600',
+  'Finance & Accounting': 'bg-yellow-100 text-yellow-600',
   'default': 'bg-gray-100 text-gray-600',
 };
 
@@ -89,7 +79,7 @@ export const LandingPage = () => {
     'Mobile-friendly platform',
     'Community support',
   ];
-
+users
   const isLoading = categoriesLoading || coursesLoading || usersLoading || certificatesLoading || attemptsLoading;
 
   return (
@@ -119,7 +109,6 @@ export const LandingPage = () => {
       <section className="bg-gradient-to-br from-blue-600 to-indigo-700 py-20 text-white">
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 lg:grid-cols-2">
           <div>
-            <p className="mb-3 inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-blue-100">Online Internship Program</p>
             <h1 className="text-4xl font-bold leading-tight sm:text-5xl">Learn. Build. Earn your certificate.</h1>
             <p className="mt-4 max-w-2xl text-lg text-blue-100">Join thousands of learners mastering development, data, design, and more with real projects and verified certificates.</p>
             <div className="mt-8 flex flex-wrap gap-4">
@@ -256,7 +245,7 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      <footer className="bg-gray-900 py-12 text-white">
+      <footer className="border-t border-gray-200 bg-white py-12 text-gray-900">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
             <div>
@@ -266,34 +255,34 @@ export const LandingPage = () => {
                 </div>
                 <span className="text-lg font-bold">Taaleem Academy</span>
               </div>
-              <p className="text-sm text-gray-400">Upskill with expert-led courses and earn verifiable certificates.</p>
+              <p className="text-sm text-gray-600">Upskill with expert-led courses and earn verifiable certificates.</p>
             </div>
             <div>
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide">Explore</h4>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li><Link to="/courses" className="hover:text-white">Courses</Link></li>
-                <li><Link to="/dashboard" className="hover:text-white">Dashboard</Link></li>
-                <li><Link to="/login" className="hover:text-white">Login</Link></li>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li><Link to="/courses" className="hover:text-blue-600">Courses</Link></li>
+                <li><Link to="/dashboard" className="hover:text-blue-600">Dashboard</Link></li>
+                <li><Link to="/login" className="hover:text-blue-600">Login</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide">Support</h4>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li><span className="cursor-pointer hover:text-white">Help Center</span></li>
-                <li><span className="cursor-pointer hover:text-white">Contact</span></li>
-                <li><span className="cursor-pointer hover:text-white">Status</span></li>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li><span className="cursor-pointer hover:text-blue-600">Help Center</span></li>
+                <li><span className="cursor-pointer hover:text-blue-600">Contact</span></li>
+                <li><span className="cursor-pointer hover:text-blue-600">Status</span></li>
               </ul>
             </div>
             <div>
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide">Legal</h4>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li><span className="cursor-pointer hover:text-white">Privacy</span></li>
-                <li><span className="cursor-pointer hover:text-white">Terms</span></li>
-                <li><span className="cursor-pointer hover:text-white">Cookies</span></li>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li><span className="cursor-pointer hover:text-blue-600">Privacy</span></li>
+                <li><span className="cursor-pointer hover:text-blue-600">Terms</span></li>
+                <li><span className="cursor-pointer hover:text-blue-600">Cookies</span></li>
               </ul>
             </div>
           </div>
-          <div className="mt-12 border-t border-gray-800 pt-6 text-center text-sm text-gray-400">© 2025 Taaleem Academy. All rights reserved.</div>
+          <div className="mt-12 border-t border-gray-200 pt-6 text-center text-sm text-gray-500">© 2025 Taaleem Academy. All rights reserved.</div>
         </div>
       </footer>
     </div>

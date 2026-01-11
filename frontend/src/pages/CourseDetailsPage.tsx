@@ -162,10 +162,19 @@ export const CourseDetailsPage = () => {
   const myQuizAttempts = useMemo(() => (quizAttempts ?? []).filter(a => courseQuizzes.some(q => q.id === a.quizId)), [quizAttempts, courseQuizzes]);
   
   const overallScore = useMemo(() => {
-    if (!myQuizAttempts.length) return null;
-    const avg = myQuizAttempts.reduce((sum, a) => sum + a.score, 0) / myQuizAttempts.length;
+    if (!courseQuizzes.length) return null;
+    
+    // For each quiz, get the highest scoring attempt
+    const highestScores = courseQuizzes.map(quiz => {
+      const attemptsForQuiz = myQuizAttempts.filter(a => a.quizId === quiz.id);
+      if (!attemptsForQuiz.length) return 0;
+      return Math.max(...attemptsForQuiz.map(a => a.score));
+    });
+    
+    // Average the highest scores from each quiz
+    const avg = highestScores.reduce((sum, score) => sum + score, 0) / highestScores.length;
     return Math.round(avg * 10) / 10; // 1 decimal place
-  }, [myQuizAttempts]);
+  }, [courseQuizzes, myQuizAttempts]);
 
   const canIssueCertificate = useMemo(() => {
     if (progress !== 100) return false;
@@ -188,12 +197,12 @@ export const CourseDetailsPage = () => {
 
   useEffect(() => {
     if (loading) return;
-    if (progress !== 100) return;
+    if (!canIssueCertificate) return;
     if (!user) return;
     if (issueCertMutation.isPending || autoIssued) return;
     issueCertMutation.mutate();
     setAutoIssued(true);
-  }, [loading, progress, user, issueCertMutation, autoIssued]);
+  }, [loading, canIssueCertificate, user, issueCertMutation, autoIssued]);
 
   const firstIncomplete = courseLessons.find((l) => !completedLessonIds.has(l.id));
 
@@ -244,7 +253,7 @@ export const CourseDetailsPage = () => {
                   </p>
                   <h1 className="mt-3 text-3xl font-bold lg:text-4xl">{course.title}</h1>
                   <p className="mt-3 max-w-3xl text-blue-100">{course.longDescription ?? course.shortDescription}</p>
-                  {instructor && (
+                  {instructor?.fullName && (
                     <p className="mt-2 text-sm text-blue-200">
                       Instructor: <span className="font-semibold">{instructor.fullName}</span>
                     </p>
@@ -385,12 +394,12 @@ export const CourseDetailsPage = () => {
           </div>
         )}
 
-        {!loading && progress === 100 && user && (
+        {!loading && canIssueCertificate && user && (
           <div className="rounded-2xl border border-green-100 bg-green-50 p-6 text-green-800">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-semibold">Ready to issue a certificate</div>
-                <div className="text-sm">This course is 100% complete.</div>
+                <div className="text-sm">This course is 100% complete{courseQuizzes.length > 0 ? ' and you passed all requirements' : ''}.</div>
               </div>
               <button
                 onClick={() => issueCertMutation.mutate()}
